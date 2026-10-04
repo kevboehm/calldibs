@@ -1,0 +1,437 @@
+import Foundation
+import Testing
+@testable import DibsCore
+
+private func d(_ string: String) -> Decimal { Decimal(string: string)! }
+
+@Suite struct ReceiptTextParserTests {
+    @Test func parsesTypicalReceipt() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "JOE'S DINER",
+            "123 Main St",
+            "(555) 123-4567",
+            "10/03/2026 7:45 PM",
+            "Table 12   Guests 4",
+            "2 Burger            $19.00",
+            "Caesar Salad         12.50",
+            "3x IPA               21.00",
+            "Fries x2              9.00",
+            "Subtotal             61.50",
+            "Sales Tax             5.07",
+            "Total                66.57",
+            "Tip: ____________",
+            "VISA ****1234        66.57",
+            "Thank you!",
+        ])
+
+        #expect(receipt.items.map(\.name) == ["Burger", "Caesar Salad", "IPA", "Fries"])
+        #expect(receipt.items.map(\.quantity) == [2, 1, 3, 2])
+        #expect(receipt.items.map(\.unitPrice) == [d("9.50"), d("12.50"), d("7.00"), d("4.50")])
+        #expect(receipt.subtotal == d("61.50"))
+        #expect(receipt.tax == d("5.07"))
+        #expect(receipt.total == d("66.57"))
+        #expect(receipt.itemsSubtotal == d("61.50"))
+    }
+
+    @Test func explicitUnitPriceWins() {
+        let receipt = ReceiptTextParser.parse(lines: ["Taco 3 @ 4.50   13.50"])
+        #expect(receipt.items.count == 1)
+        #expect(receipt.items[0].name == "Taco")
+        #expect(receipt.items[0].quantity == 3)
+        #expect(receipt.items[0].unitPrice == d("4.50"))
+    }
+
+    @Test func joinsNameAndPriceOnSeparateLines() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Margherita Pizza",
+            "$18.00",
+            "Tax",
+            "1.44",
+            "TOTAL",
+            "19.44",
+        ])
+        #expect(receipt.items.map(\.name) == ["Margherita Pizza"])
+        #expect(receipt.items[0].unitPrice == d("18.00"))
+        #expect(receipt.tax == d("1.44"))
+        #expect(receipt.total == d("19.44"))
+    }
+
+    @Test func handlesPriceQuirks() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Tasting Menu      1,250.00",
+            "Espresso              3,50",
+            "Soda                  2.99 T",
+            "Water                 0.00",
+            "Discount              5.00-",
+        ])
+        #expect(receipt.items.map(\.name) == ["Tasting Menu", "Espresso", "Soda"])
+        #expect(receipt.items.map(\.unitPrice) == [d("1250.00"), d("3.50"), d("2.99")])
+    }
+
+    @Test func sumsMultipleTaxLines() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Pasta   20.00",
+            "GST      1.00",
+            "PST      1.40",
+            "Total   22.40",
+        ])
+        #expect(receipt.tax == d("2.40"))
+        #expect(receipt.items.count == 1)
+    }
+
+    @Test func skipsPaymentAndTipLines() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Ramen          16.00",
+            "Tax             1.28",
+            "Total          17.28",
+            "Suggested Tip 20%   3.46",
+            "Cash           20.00",
+            "Change          2.72",
+        ])
+        #expect(receipt.items.map(\.name) == ["Ramen"])
+        #expect(receipt.total == d("17.28"))
+    }
+
+    @Test func parsesXPrefixedQuantitiesAndInlineUnitPrices() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Table Barll",
+            "Date: 10/3/2026 11:16 AM (1)",
+            "Server: Andy",
+            "x2 Vodka($9.00) $18.00",
+            "x1 Sausage Ricotta Boat $30.00",
+            "x1 Chuckanut - Pilsner $8.90",
+            "x2 Russian River - Pliny ($9.50) $19.00",
+            "x3 Elysian - Hazy IPA($9.00) $27.00",
+            "Total 7 item(s) $102.90",
+            "Sales Tax (10.55%) $10.86",
+            "Grand Total $113.76",
+            "Tip Guide: 15%-$17.06 / 18%-$20.48 / 20%=$",
+            "22.75",
+        ])
+
+        #expect(receipt.items.map(\.name) == [
+            "Vodka", "Sausage Ricotta Boat", "Chuckanut - Pilsner", "Russian River - Pliny", "Elysian - Hazy IPA",
+        ])
+        #expect(receipt.items.map(\.quantity) == [2, 1, 1, 2, 3])
+        #expect(receipt.items.map(\.unitPrice) == [d("9.00"), d("30.00"), d("8.90"), d("9.50"), d("9.00")])
+        #expect(receipt.subtotal == d("102.90"))
+        #expect(receipt.tax == d("10.86"))
+        #expect(receipt.total == d("113.76"))
+    }
+
+    @Test func headerFieldsNeverBecomeItems() {
+        // A stray price right under a header line must not adopt its name.
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Server: Andy",
+            "$18.00",
+            "Table #4  12.00",
+            "Burger  9.00",
+        ])
+        #expect(receipt.items.map(\.name) == ["Burger"])
+    }
+
+    @Test func nothingAfterTheSummaryIsAnItem() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "1 Sausage Burrito    1.00",
+            "Sub. Total:          1.00",
+            "Tax                  0.09",
+            "Take-Out Total       1.09",
+            "TRANSACTION AMOUNT   1.09",
+            "Next Dollar          2.00",
+            "Even Split (4):      0.27",
+        ])
+        #expect(receipt.items.map(\.name) == ["Sausage Burrito"])
+        #expect(receipt.subtotal == d("1.00"))
+        #expect(receipt.total == d("1.09"))
+    }
+
+    @Test func findsSubtotalTaxAndTotalByArithmetic() {
+        // None of the summary lines carries a word the parser knows.
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Iced Tea       2.50",
+            "Diet Coke      2.50",
+            "Cuban         11.99",
+            "TxblPur       16.99",
+            "StTx           1.23",
+            "Total         18.22",
+        ])
+        #expect(receipt.items.map(\.name) == ["Iced Tea", "Diet Coke", "Cuban"])
+        #expect(receipt.subtotal == d("16.99"))
+        #expect(receipt.tax == d("1.23"))
+        #expect(receipt.total == d("18.22"))
+    }
+
+    @Test func itemThatHappensToEqualTheOnesAboveStaysAnItem() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Soup      5.00",
+            "Salad     5.00",
+            "Steak    10.00",
+            "Tax       1.60",
+            "Total    21.60",
+        ])
+        #expect(receipt.items.count == 3)
+        #expect(receipt.subtotal == nil)
+    }
+
+    @Test func unnamedTotalAndUnreadableTax() {
+        let unnamed = ReceiptTextParser.parse(lines: [
+            "Pho           12.00",
+            "Spring Rolls   6.00",
+            "Subtotal      18.00",
+            "Tax            1.50",
+            "Amount;       19.50",
+        ])
+        #expect(unnamed.total == d("19.50"))
+
+        // The tax amount was lost, but the gap to the total gives it.
+        let unreadable = ReceiptTextParser.parse(lines: [
+            "Pho           12.00",
+            "Spring Rolls   6.00",
+            "Subtotal      18.00",
+            "lax",
+            "Total         19.50",
+        ])
+        #expect(unreadable.tax == d("1.50"))
+    }
+
+    @Test func sumsDecideAmbiguousLines() {
+        // A header line ending in a number, a note that is not a charge, and
+        // category subtotals: each is dropped because the subtotal says so.
+        let header = ReceiptTextParser.parse(lines: [
+            "Register 1 14:17.07", "Salad 15.00", "Pizza 22.00", "Soda 3.00", "Subtotal 40.00",
+        ])
+        #expect(header.items.map(\.name) == ["Salad", "Pizza", "Soda"])
+
+        let note = ReceiptTextParser.parse(lines: [
+            "Eggs 3.24", "Milk 1.68", "REDUCED WAS 6.17", "Subtotal 4.92",
+        ])
+        #expect(note.items.map(\.name) == ["Eggs", "Milk"])
+
+        let categories = ReceiptTextParser.parse(lines: [
+            "Fillet 150.00", "Mojito 35.00", "Food 150.00", "Beverage 35.00", "Amount Due 185.00",
+        ])
+        #expect(categories.items.map(\.name) == ["Fillet", "Mojito"])
+    }
+
+    @Test func unitPriceColumnIsRecognized() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "2 Burger       9.50",
+            "Fries 4.00     4.00",
+            "Subtotal      23.00",
+        ])
+        #expect(receipt.items.map(\.name) == ["Burger", "Fries"])
+        #expect(receipt.items.map(\.lineTotal) == [d("19.00"), d("4.00")])
+    }
+
+    @Test func readsNoisyLines() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Tri-Tip Sandwich     14.00",
+            "12 Eggs w Sausage    14.00",
+            "> 1 16PC MEAL        35.99 TX",
+            "Lettuce - Iceberg -  12.42",
+            "Coffee               $4 .00 1",
+            "Subtota1             80.41",
+            "T0TAL                80.41",
+        ])
+        #expect(receipt.items.map(\.name) == [
+            "Tri-Tip Sandwich", "12 Eggs w Sausage", "16PC MEAL", "Lettuce - Iceberg", "Coffee",
+        ])
+        #expect(receipt.items.map(\.quantity) == [1, 1, 1, 1, 1])
+        #expect(receipt.subtotal == d("80.41"))
+        #expect(receipt.total == d("80.41"))
+    }
+
+    @Test func readsServiceChargesAndFees() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "2 Burger            24.00",
+            "Room Service Club   16.00",
+            "Fries                6.00",
+            "Subtotal            46.00",
+            "Service Charge 18%   8.28",
+            "Card Surcharge       1.38",
+            "Tax                  4.60",
+            "Total               60.26",
+            "Suggested Gratuity 20%  9.20",
+            "VISA                60.26",
+        ])
+        #expect(receipt.items.map(\.name) == ["Burger", "Room Service Club", "Fries"])
+        #expect(receipt.charges.map(\.name) == ["Service Charge 18%", "Card Surcharge"])
+        #expect(receipt.charges.map(\.amount) == [d("8.28"), d("1.38")])
+        #expect(receipt.tax == d("4.60"))
+        #expect(receipt.total == d("60.26"))
+        #expect(receipt.computedTotal == d("60.26"))
+        #expect(receipt.includesGratuity)
+    }
+
+    @Test func readsAChargeWithNoSubtotalLine() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Pasta        20.00",
+            "Wine         30.00",
+            "Gratuity     10.00",
+            "Tax           4.00",
+            "Total        64.00",
+        ])
+        #expect(receipt.items.map(\.name) == ["Pasta", "Wine"])
+        #expect(receipt.charges.map(\.amount) == [d("10.00")])
+        #expect(receipt.total == d("64.00"))
+    }
+
+    @Test func gratuityAfterTheTotalNeedsATotalThatIncludesIt() {
+        // Added on, with a second total that proves it.
+        let added = ReceiptTextParser.parse(lines: [
+            "Ramen 16.00", "Gyoza 8.00", "Tax 2.00", "Total 26.00", "Gratuity 4.68", "Amount Due 30.68",
+        ])
+        #expect(added.charges.map(\.amount) == [d("4.68")])
+        #expect(added.total == d("30.68"))
+
+        // Printed as a hint under the total: not a charge.
+        let hint = ReceiptTextParser.parse(lines: [
+            "Ramen 16.00", "Gyoza 8.00", "Tax 2.00", "Total 26.00", "Gratuity 18% 4.68", "Gratuity 20% 5.20",
+        ])
+        #expect(hint.charges.isEmpty)
+        #expect(hint.total == d("26.00"))
+    }
+
+    @Test func readsADiscountTheTotalConfirms() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Pizza 20.00", "Salad 10.00", "Subtotal 30.00", "Happy Hour Discount -5.00", "Tax 2.00", "Total 27.00",
+        ])
+        #expect(receipt.charges.map(\.amount) == [d("-5.00")])
+        #expect(receipt.computedTotal == d("27.00"))
+        #expect(!receipt.includesGratuity)
+    }
+
+    @Test func emptyInputGivesEmptyReceipt() {
+        let receipt = ReceiptTextParser.parse(lines: [])
+        #expect(receipt.items.isEmpty)
+        #expect(receipt.tax == 0)
+        #expect(receipt.subtotal == nil)
+        #expect(receipt.total == nil)
+    }
+}
+
+@Suite struct OCRRowGrouperTests {
+    @Test func rejoinsFragmentsOnTheSameRow() {
+        let lines = OCRRowGrouper.lines(from: [
+            TextFragment(text: "12.50", minX: 0.80, midY: 0.702, height: 0.02),
+            TextFragment(text: "Total", minX: 0.10, midY: 0.60, height: 0.02),
+            TextFragment(text: "Caesar Salad", minX: 0.10, midY: 0.70, height: 0.02),
+            TextFragment(text: "JOE'S DINER", minX: 0.30, midY: 0.95, height: 0.04),
+            TextFragment(text: "13.50", minX: 0.80, midY: 0.598, height: 0.02),
+        ])
+        #expect(lines == ["JOE'S DINER", "Caesar Salad 12.50", "Total 13.50"])
+    }
+
+    @Test func pairsRowsOnATiltedReceipt() {
+        // Rows run uphill, so each price sits nearer the name on the row above
+        // than the name on its own row.
+        let slope = 0.03
+        func row(_ name: String, _ price: String, y: Double) -> [TextFragment] {
+            [
+                TextFragment(text: name, minX: 0.10, midY: y + slope * (0.25 - 0.5), height: 0.02, midX: 0.25, width: 0.30, slope: slope),
+                TextFragment(text: price, minX: 0.75, midY: y + slope * (0.80 - 0.5), height: 0.02, midX: 0.80, width: 0.10, slope: slope),
+            ]
+        }
+        let fragments = row("Vodka", "18.00", y: 0.70) + row("Sausage Boat", "30.00", y: 0.675) + row("Pilsner", "8.90", y: 0.65)
+
+        #expect(OCRRowGrouper.lines(from: fragments) == ["Vodka 18.00", "Sausage Boat 30.00", "Pilsner 8.90"])
+    }
+
+    @Test func rowsCoverTheirFragments() throws {
+        let rows = OCRRowGrouper.rows(from: [
+            TextFragment(text: "Caesar Salad", minX: 0.10, midY: 0.70, height: 0.02, midX: 0.25, width: 0.30, confidence: 0.9),
+            TextFragment(text: "12.50", minX: 0.80, midY: 0.702, height: 0.02, midX: 0.85, width: 0.10, confidence: 0.4),
+        ])
+        let row = try #require(rows.first)
+        #expect(rows.count == 1)
+        #expect(row.text == "Caesar Salad 12.50")
+        #expect(abs(row.minX - 0.10) < 1e-9 && abs(row.width - 0.80) < 1e-9)
+        #expect(abs(row.minY - 0.69) < 1e-9 && abs(row.height - 0.022) < 1e-9)
+        #expect(row.confidence == 0.4)
+    }
+
+    @Test func fragmentsSavedWithoutConfidenceStillLoad() throws {
+        let saved = #"[{"text":"Total","minX":0.1,"midX":0.2,"midY":0.6,"width":0.2,"height":0.02,"slope":0}]"#
+        let fragments = try JSONDecoder().decode([TextFragment].self, from: Data(saved.utf8))
+        #expect(fragments.first?.confidence == 1)
+    }
+}
+
+@Suite struct ReceiptSourceTests {
+    @Test func itemsRememberTheLinesTheyCameFrom() throws {
+        let (receipt, sources) = ReceiptTextParser.parseWithSources(lines: [
+            "JOE'S DINER",
+            "2 Burger 19.00",
+            "Caesar Salad",
+            "12.50",
+            "Subtotal 31.50",
+            "Tax 2.50",
+            "Total 34.00",
+        ])
+        #expect(receipt.items.count == 2)
+        let burger = try #require(receipt.items.first)
+        let salad = try #require(receipt.items.last)
+        #expect(sources[burger.id] == [1])
+        // The name and the price were on separate rows.
+        #expect(sources[salad.id] == [2, 3])
+        #expect(sources.count == 2)
+    }
+
+    /// "Total" is the items' sum here; the party charge, a surcharge and
+    /// the tax sit between it and the grand total.
+    @Test func totalAboveChargesAndTaxIsTheSubtotal() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Chubby Noodle",
+            "Server: Manuela Ve. 23",
+            "Guests: 6",
+            "Description Amount",
+            "MOMOKAWA SAKE $38.00*",
+            "SMALL SAPORRO (5@7.00) $ 35.00*",
+            "CIDER $ 10.00*",
+            "SALT & PEPPER SHRIMP $ 19.00*",
+            "CHILE PRAWNS $33.00*",
+            "add 3 steaj rice sfss",
+            "GARLIC NOODLES $ 16.00*",
+            "Total $ 151.00",
+            "Parties of 6+ $ 30.20",
+            "*(5%) Healthy SF Surcharge $7.55",
+            "*(8.63 %) Sales Tax $ 16.31",
+            "Grand Total $ 205.06",
+        ])
+
+        #expect(receipt.items.map(\.name) == [
+            "MOMOKAWA SAKE", "SMALL SAPORRO", "CIDER", "SALT & PEPPER SHRIMP", "CHILE PRAWNS", "GARLIC NOODLES",
+        ])
+        #expect(receipt.items.map(\.quantity) == [1, 5, 1, 1, 1, 1])
+        #expect(receipt.items[1].unitPrice == d("7.00"))
+        #expect(receipt.subtotal == d("151.00"))
+        #expect(receipt.tax == d("16.31"))
+        #expect(receipt.charges.map(\.name) == ["Parties of 6+", "(5%) Healthy SF Surcharge"])
+        #expect(receipt.charges.map(\.amount) == [d("30.20"), d("7.55")])
+        #expect(receipt.total == d("205.06"))
+        #expect(receipt.reconciles == true)
+        // A charge for a large party is the tip.
+        #expect(receipt.includesGratuity)
+    }
+
+    /// OCR reads the "@" of "(5@7.00)" as a zero.
+    @Test func quantityInParenthesesSurvivesAMisreadAtSign() {
+        let receipt = ReceiptTextParser.parse(lines: ["SMALL SAPORRO (507.00) $ 35.00*", "Vodka ($9.00) 9.00"])
+        #expect(receipt.items.map(\.name) == ["SMALL SAPORRO", "Vodka"])
+        #expect(receipt.items.map(\.quantity) == [5, 1])
+        #expect(receipt.items.map(\.unitPrice) == [d("7.00"), d("9.00")])
+    }
+
+    @Test func chargesCountTowardsReconciling() {
+        let d = { (value: String) in Decimal(string: value)! }
+        var receipt = Receipt(
+            items: [LineItem(name: "Pizza", unitPrice: d("20.00"))],
+            tax: d("2.00"),
+            total: d("25.60"),
+            charges: [Charge(name: "Service Charge", amount: d("3.60"))]
+        )
+        #expect(receipt.reconciles == true)
+        receipt.charges = []
+        #expect(receipt.reconciles == false)
+    }
+}

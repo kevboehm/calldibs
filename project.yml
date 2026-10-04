@@ -1,0 +1,58 @@
+name: Dibs
+options:
+  bundleIdPrefix: com.kevinboehm
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: JT6YSTCYNG
+packages:
+  DibsCore:
+    path: Packages/DibsCore
+targets:
+  Dibs:
+    type: application
+    platform: iOS
+    sources:
+      - Dibs
+    dependencies:
+      - package: DibsCore
+        product: DibsCore
+      - package: DibsCore
+        product: DibsOCR
+      - package: DibsCore
+        product: DibsLLM
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kevinboehm.CallDibs
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Call Dibs
+        INFOPLIST_KEY_NSCameraUsageDescription: Call Dibs uses the camera to photograph your receipt.
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+    scheme:
+      testTargets:
+        - DibsUITests
+  DibsUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - DibsUITests
+    dependencies:
+      - target: Dibs
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.kevinboehm.CallDibsUITests
+        SWIFT_VERSION: "5.0"
+        TEST_TARGET_NAME: Dibs

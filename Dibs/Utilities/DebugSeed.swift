@@ -34,6 +34,12 @@ enum DebugSeed {
             // A scan that missed the last item.
             session.receipt.items.removeLast()
             return (session, [.edit])
+        case "nototal":
+            // A scan that found the items but no subtotal or total.
+            session.receipt.subtotal = nil
+            session.receipt.total = nil
+            session.scan = ScanSource(rows: [], itemRows: [:], fragments: [])
+            return (session, [.edit])
         case "name":
             return (session, [.edit, .name])
         case "swipe", "stamp":

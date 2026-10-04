@@ -142,6 +142,24 @@ struct ReceiptSummaryView: View {
                 }
             }
             .receiptRow()
+        } else if session.nothingToCheckAgainst {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("No total to check against", systemImage: "questionmark.circle")
+                        .font(.headline)
+                    Text("The scan didn't find a subtotal or total on the receipt, so it can't tell whether an item is missing. Check every line against the receipt yourself.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if session.scanImage != nil {
+                        Button("See the receipt", systemImage: "doc.viewfinder") {
+                            Keyboard.dismiss()
+                            showScan = true
+                        }
+                        .buttonStyle(.glass)
+                    }
+                }
+            }
+            .receiptRow()
         }
     }
 

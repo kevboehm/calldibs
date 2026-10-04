@@ -556,6 +556,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Call Dibs";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Call Dibs uses the camera to photograph your receipt.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Call Dibs saves the picture of your split to your photos when you choose Save Image.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -676,6 +677,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Call Dibs";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Call Dibs uses the camera to photograph your receipt.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Call Dibs saves the picture of your split to your photos when you choose Save Image.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;

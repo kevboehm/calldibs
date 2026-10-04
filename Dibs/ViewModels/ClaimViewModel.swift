@@ -231,6 +231,12 @@ final class ClaimViewModel {
         subtotalMismatch || totalMismatch
     }
 
+    /// True when a scan found neither a subtotal nor a total on the receipt,
+    /// so the arithmetic can't be checked at all.
+    var nothingToCheckAgainst: Bool {
+        scan != nil && receipt.subtotal == nil && receipt.total == nil
+    }
+
     /// A row counts once it has a name or a price; untouched rows don't.
     private func isBlank(_ item: LineItem) -> Bool {
         item.name.trimmingCharacters(in: .whitespaces).isEmpty && item.unitPrice == 0

@@ -250,6 +250,15 @@ final class BugBashTests: XCTestCase {
         shot("mm03-after-continue")
     }
 
+    func testScanWithNoTotalSaysSo() {
+        launch("nototal")
+        shot("nt01-banner")
+        note("banner: \(texts().filter { $0.contains("total") })")
+        tap(button("Start calling dibs"), "Start calling dibs")
+        sleep(1)
+        note("dialog shown: \(button("Continue anyway").exists)")
+    }
+
     func testOverviewEditDeleteAndReset() {
         launch("split")
         tap(app.staticTexts["Sam"].firstMatch, "expand Sam")

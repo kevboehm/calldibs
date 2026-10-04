@@ -65,7 +65,7 @@ TestFlight → the build → Test Details:
 > - For an item with a quantity above 1, claim only some of them.
 > - Pass the phone to someone else and have them claim theirs.
 > - Change the tip on your own receipt and check your total.
-> - On the split screen, check each person's total, add your Venmo handle,
+> - On the split screen, check each person's total, add your Venmo, Cash App or PayPal handle,
 >   and share the pay links or the picture of the split.
 >
 > Tell me about receipts it reads wrong (a photo of the receipt helps most),
@@ -88,8 +88,8 @@ TestFlight → Test Information → Beta App Review Information:
 > "Enter items manually" to type a bill in without a receipt.
 >
 > The receipt is read on-device with Apple's Vision framework. The app makes
-> no network requests and collects no data. The Venmo links open the Venmo
-> app (or venmo.com) with the amount filled in; Call Dibs does not process
+> no network requests and collects no data. The Venmo, Cash App and PayPal links
+> open that app (or its website) with the amount filled in; Call Dibs does not process
 > payments.
 
 ## 5. App Privacy (only when you submit to the App Store, not for TestFlight)

@@ -81,4 +81,45 @@ public struct LineItem: Identifiable, Hashable, Sendable, Codable {
         unitPrice = total / Decimal(parts)
         isSplit = parts > 1
     }
+
+    /// Shares whatever nobody claimed equally among `people`, leaving the
+    /// line total and everyone's existing claims worth what they were.
+    ///
+    /// Returns an item to list after this one when the leftovers had to be
+    /// carved off: three beers with one left over stay "2 × Beer" for those
+    /// who had a whole one, and the third becomes its own shared line.
+    public mutating func shareUnclaimed(among people: [Person.ID]) -> LineItem? {
+        let left = unclaimedQuantity
+        let count = people.count
+        guard left > 0, count > 0 else { return nil }
+
+        if left % count == 0 {
+            for person in people { claims[person, default: 0] += left / count }
+            return nil
+        }
+
+        if isMultiUnit, !isSplit, totalClaimed > 0 {
+            var rest = LineItem(name: name, unitPrice: unitPrice * Decimal(left))
+            quantity -= left
+            _ = rest.shareUnclaimed(among: people)
+            return rest
+        }
+
+        // Cut every share into `count` smaller ones, so the leftovers divide
+        // evenly, then reduce so the labels stay small: 1/3, not 5/15.
+        let total = lineTotal
+        var shared = claims.mapValues { $0 * count }
+        for person in people { shared[person, default: 0] += left }
+        let divisor = shared.values.reduce(quantity * count, Self.gcd)
+        claims.removeAll()
+        quantity = quantity * count / divisor
+        unitPrice = total / Decimal(quantity)
+        claims = shared.mapValues { $0 / divisor }
+        isSplit = true
+        return nil
+    }
+
+    private static func gcd(_ a: Int, _ b: Int) -> Int {
+        b == 0 ? a : gcd(b, a % b)
+    }
 }

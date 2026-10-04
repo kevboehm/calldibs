@@ -6,7 +6,9 @@ import DibsCore
 struct PersonShareRow: View {
     let name: String
     let summary: ShareSummary
-    /// The bill payer's Venmo handle, or "" if they haven't set one.
+    /// Where the bill payer gets paid, and their handle there ("" if they
+    /// haven't set one).
+    var method: PaymentMethod = .venmo
     var payerHandle: String = ""
     let onEdit: () -> Void
     let onRemove: () -> Void
@@ -20,15 +22,10 @@ struct PersonShareRow: View {
             // First, so they aren't pushed off screen by a long breakdown.
             Button("Edit \(name)'s dibs or tip", systemImage: "pencil", action: onEdit)
             if summary.total > 0 {
-                Button("Request \(Money.string(summary.total)) on Venmo", systemImage: "arrow.up.forward.app") {
-                    VenmoLauncher.open(
-                        action: .charge,
-                        handle: "",
-                        amount: summary.total,
-                        note: "\(name)'s share of the bill"
-                    )
+                if method == .venmo {
+                    requestOnVenmo
                 }
-                if let message = VenmoShare.payMessage(name: name, amount: summary.total, handle: payerHandle) {
+                if let message = PayShare.payMessage(name: name, amount: summary.total, method: method, handle: payerHandle) {
                     ShareLink(item: message) {
                         Label("Send \(name) a pay-me link", systemImage: "square.and.arrow.up")
                     }
@@ -68,5 +65,17 @@ struct PersonShareRow: View {
             .font(.headline)
         }
         .font(.subheadline)
+    }
+
+    /// Opens Venmo with a request for this person's share, ready to send.
+    private var requestOnVenmo: some View {
+        Button("Request \(Money.string(summary.total)) on Venmo", systemImage: "arrow.up.forward.app") {
+            VenmoLauncher.open(
+                action: .charge,
+                handle: "",
+                amount: summary.total,
+                note: "\(name)'s share of the bill"
+            )
+        }
     }
 }

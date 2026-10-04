@@ -25,7 +25,13 @@ struct SwipeClaimView: View {
     @State private var skipCount = 0
     @State private var isPastThreshold = false
 
+    /// False until this phone has decided its first card, while the deck
+    /// still explains itself.
+    @AppStorage("hasSwiped") private var hasSwiped = false
+
     private let threshold: CGFloat = 110
+    /// How far the first card leans over to show that it swipes.
+    private let nudge: CGFloat = 64
 
     // Only what other people have left.
     private var items: [LineItem] { session.swipeItems }
@@ -46,6 +52,13 @@ struct SwipeClaimView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .contentTransition(.numericText())
+
+                if !hasSwiped {
+                    Text("Swipe right for yours, left for not yours.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
 
                 ZStack {
                     if let next = item(at: session.swipeIndex + 1) {
@@ -111,6 +124,7 @@ struct SwipeClaimView: View {
                 ConfettiBurst(trigger: claimCount)
             }
         }
+        .task(showSwipe)
         .sensoryFeedback(.impact(weight: .heavy), trigger: claimCount)
         .sensoryFeedback(.impact(weight: .light), trigger: skipCount)
         .sensoryFeedback(.selection, trigger: isPastThreshold)
@@ -188,6 +202,7 @@ struct SwipeClaimView: View {
     private func skip(_ item: LineItem) {
         guard !isLeaving else { return }
         isLeaving = true
+        hasSwiped = true
         session.setClaimed(0, for: item.id)
         skipCount += 1
         flyOff(towards: -1)
@@ -197,6 +212,7 @@ struct SwipeClaimView: View {
     /// confetti, then the card leaves.
     private func callDibs(count: Int) {
         isLeaving = true
+        hasSwiped = true
         claimCount += 1
         withAnimation(.spring) { drag = .zero }
         withAnimation(Theme.Motion.stamp) {
@@ -204,6 +220,18 @@ struct SwipeClaimView: View {
         } completion: {
             flyOff(towards: 1)
         }
+    }
+
+    /// Leans the first card towards "mine" and back, once, so a new user
+    /// sees that it swipes. Left alone if they have already taken hold of it.
+    private func showSwipe() async {
+        guard !hasSwiped, !reduceMotion else { return }
+        try? await Task.sleep(for: .seconds(0.7))
+        guard !Task.isCancelled, drag == .zero, !isLeaving, stamp == nil else { return }
+        withAnimation(.smooth(duration: 0.35)) { drag.width = nudge }
+        try? await Task.sleep(for: .seconds(0.7))
+        guard drag == CGSize(width: nudge, height: 0), !isLeaving else { return }
+        withAnimation(.spring) { drag = .zero }
     }
 
     /// Sends the card off one side, then brings up the next one.

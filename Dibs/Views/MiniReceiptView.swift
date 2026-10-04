@@ -59,7 +59,7 @@ struct MiniReceiptView: View {
                 let image = ShareCardImage(card: ShareCard(summary: summary, name: name.isEmpty ? nil : name))
                 ShareLink(
                     item: image,
-                    preview: SharePreview("My share: \(Money.string(summary.total))", image: image.preview)
+                    preview: SharePreview("My share: \(Money.string(summary.total))", image: image)
                 ) {
                     Label("Share as a picture", systemImage: "square.and.arrow.up")
                 }

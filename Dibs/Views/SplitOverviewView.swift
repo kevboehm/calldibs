@@ -11,17 +11,19 @@ struct SplitOverviewView: View {
 
     @State private var confirmNewBill = false
     @State private var personToRemove: Person?
-    @AppStorage("venmoHandle") private var venmoHandle = ""
+    var payout = PayoutSettings()
     @State private var editingHandle = false
+    @State private var confirmSplitRest = false
 
     private var hasPayableTotals: Bool {
         session.people.contains { session.summary(for: $0).total > 0 }
     }
 
     private var everyonePayMessage: String? {
-        VenmoShare.everyoneMessage(
+        PayShare.everyoneMessage(
             people: session.people.map { (session.displayName($0), session.summary(for: $0).total) },
-            handle: venmoHandle
+            method: payout.method,
+            handle: payout.handle
         )
     }
 
@@ -65,7 +67,8 @@ struct SplitOverviewView: View {
                     PersonShareRow(
                         name: session.displayName(person),
                         summary: session.summary(for: person),
-                        payerHandle: venmoHandle
+                        method: payout.method,
+                        payerHandle: payout.handle
                     ) {
                         onEdit(person.id)
                     } onRemove: {
@@ -86,6 +89,9 @@ struct SplitOverviewView: View {
                     ForEach(session.receipt.unclaimedItems) { item in
                         AmountRow(unclaimedLabel(item), item.unclaimedTotal.roundedToCents())
                     }
+                    if !session.people.isEmpty {
+                        splitRestButton
+                    }
                 } header: {
                     Label("No dibs yet", systemImage: "exclamationmark.circle")
                         .foregroundStyle(Theme.Palette.notMine)
@@ -103,29 +109,37 @@ struct SplitOverviewView: View {
 
             if !session.people.isEmpty {
                 Section {
-                    if VenmoLink.normalize(venmoHandle).isEmpty {
-                        Button("Add your Venmo to share pay links", systemImage: "arrow.up.forward.app") {
-                            editingHandle = true
-                        }
-                    } else {
+                    if payout.hasHandle {
                         HStack {
-                            Label("Your Venmo", systemImage: "arrow.up.forward.app")
+                            Label("Your \(payout.method.title)", systemImage: "arrow.up.forward.app")
                             Spacer()
-                            Text("@\(venmoHandle)")
+                            Text(payout.method.prefix + payout.handle)
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
                             Button("Edit") { editingHandle = true }
                                 .font(.subheadline)
                         }
-                        if let message = everyonePayMessage {
-                            ShareLink(item: message) {
-                                Label("Share everyone's pay-me links", systemImage: "square.and.arrow.up")
-                            }
+                    } else {
+                        Button("Add how you get paid to share pay links", systemImage: "arrow.up.forward.app") {
+                            editingHandle = true
+                        }
+                    }
+                    if let message = everyonePayMessage {
+                        ShareLink(item: message) {
+                            Label(
+                                payout.hasHandle ? "Share everyone's pay-me links" : "Share what everyone owes",
+                                systemImage: "square.and.arrow.up"
+                            )
                         }
                     }
                 } header: {
                     Text("Get paid back")
                 } footer: {
-                    Text("Links open Venmo with each person's amount filled in, ready to pay you. You confirm nothing here — they do, in Venmo.")
+                    if payout.hasHandle {
+                        Text("Links open \(payout.method.title) with each person's amount filled in, ready to pay you. You confirm nothing here — they do, in \(payout.method.title).")
+                    } else {
+                        Text("Add your Venmo, Cash App or PayPal and each person gets a link with their amount filled in.")
+                    }
                 }
                 .receiptRow()
             }
@@ -133,11 +147,11 @@ struct SplitOverviewView: View {
             Section {
                 if !session.people.isEmpty {
                     let image = ShareCardImage(card: splitCard)
-                    ShareLink(item: image, preview: SharePreview("The split", image: image.preview)) {
+                    ShareLink(item: image, preview: SharePreview("The split", image: image)) {
                         Label("Share the split as a picture", systemImage: "square.and.arrow.up")
                     }
                 }
-                Button("Start a new bill", systemImage: "trash", role: .destructive) { confirmNewBill = true }
+                Button("Start a new bill", systemImage: "plus.circle") { confirmNewBill = true }
             }
             .receiptRow()
         }
@@ -148,9 +162,11 @@ struct SplitOverviewView: View {
         // Arriving here by the Back button abandons whatever turn was open.
         .onAppear(perform: session.endTurn)
         .confirmationDialog("Start a new bill?", isPresented: $confirmNewBill, titleVisibility: .visible) {
-            Button("Discard this split", role: .destructive, action: onNewBill)
+            Button("Start fresh", action: onNewBill)
         } message: {
-            Text("This split isn't saved anywhere.")
+            Text(session.people.isEmpty
+                ? "Nobody has called dibs on this bill, so it won't be kept."
+                : "This split will be kept in History.")
         }
         .confirmationDialog(
             "Remove \(personToRemove.map(session.displayName) ?? "this person")?",
@@ -165,7 +181,7 @@ struct SplitOverviewView: View {
             Text("Everything they called dibs on goes back up for grabs.")
         }
         .sheet(isPresented: $editingHandle) {
-            VenmoHandleSheet(handle: $venmoHandle)
+            PaymentHandleSheet()
         }
         .actionBar {
             if session.hasUnclaimedItems {
@@ -179,6 +195,25 @@ struct SplitOverviewView: View {
             get: { personToRemove != nil },
             set: { if !$0 { personToRemove = nil } }
         )
+    }
+
+    /// One tap for the shared plates and whatever got forgotten.
+    private var splitRestButton: some View {
+        let count = session.people.count
+        let title = count == 1
+            ? "Put the remaining \(Money.string(unclaimedTotal)) on \(session.displayName(session.people[0]))?"
+            : "Split the remaining \(Money.string(unclaimedTotal)) between \(count) people?"
+
+        return Button(count == 1 ? "Add the rest to their share" : "Split the rest evenly", systemImage: "person.2") {
+            confirmSplitRest = true
+        }
+        .confirmationDialog(title, isPresented: $confirmSplitRest, titleVisibility: .visible) {
+            Button(count == 1 ? "Add the rest" : "Split it evenly") {
+                withAnimation(.snappy) { session.splitRemainderEvenly() }
+            }
+        } message: {
+            Text("Everything nobody called dibs on is shared equally. Each person's tax and tip go up with their share.")
+        }
     }
 
     private func unclaimedLabel(_ item: LineItem) -> String {

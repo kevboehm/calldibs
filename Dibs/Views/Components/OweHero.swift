@@ -14,7 +14,7 @@ struct OweHero: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
             Text(Money.string(amount))
-                .font(Theme.heroAmount)
+                .heroAmountFont()
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)

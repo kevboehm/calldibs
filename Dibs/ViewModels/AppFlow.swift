@@ -46,6 +46,33 @@ final class AppFlow {
         path = snapshot.path
     }
 
+    // MARK: - History
+
+    /// Keeps the split in History, once anyone has called dibs. Saving the
+    /// same bill again replaces it and keeps its original date.
+    func archive() {
+        guard let session, !session.people.isEmpty else { return }
+        var snapshot = session.snapshot(path: [.overview])
+        snapshot.currentID = nil
+        snapshot.draftName = ""
+        snapshot.swipeIndex = 0
+        snapshot.scan = nil
+        let id = session.receipt.id
+        HistoryStore.save(SavedSplit(id: id, date: HistoryStore.find(id)?.date ?? .now, snapshot: snapshot))
+    }
+
+    /// Puts the bill away and goes home, ready for a new one.
+    func finish() {
+        archive()
+        path.removeAll()
+    }
+
+    /// Brings a split back from History as the bill in hand.
+    func reopen(_ split: SavedSplit) {
+        session = ClaimViewModel(snapshot: split.snapshot)
+        path = [.overview]
+    }
+
     func start(with scanned: ScannedReceipt) {
         start(with: scanned.receipt, scan: scanned.scan, scanImage: scanned.image)
     }

@@ -72,7 +72,7 @@ public enum VenmoLink {
 
     /// Two decimal places in a locale-independent form, so the amount is always
     /// "12.34" and never "12,34". Returns `nil` for zero or negative amounts.
-    private static func formattedAmount(_ amount: Decimal) -> String? {
+    static func formattedAmount(_ amount: Decimal) -> String? {
         guard amount > 0 else { return nil }
 
         let formatter = NumberFormatter()

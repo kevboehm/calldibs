@@ -65,6 +65,18 @@ public struct Receipt: Identifiable, Hashable, Sendable, Codable {
         items.filter { $0.unclaimedQuantity > 0 }
     }
 
+    /// Shares every unclaimed unit equally among `people`, so the bill ends
+    /// up fully covered.
+    public mutating func splitUnclaimedEvenly(among people: [Person.ID]) {
+        var shared: [LineItem] = []
+        for var item in items {
+            let rest = item.shareUnclaimed(among: people)
+            shared.append(item)
+            if let rest { shared.append(rest) }
+        }
+        items = shared
+    }
+
     public mutating func removeClaims(by person: Person.ID) {
         for index in items.indices {
             items[index].removeClaims(by: person)

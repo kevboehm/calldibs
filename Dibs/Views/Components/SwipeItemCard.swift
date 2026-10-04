@@ -35,8 +35,10 @@ struct SwipeItemCard: View {
                 .multilineTextAlignment(.center)
 
             Text(Money.string(item.lineTotal.roundedToCents()))
-                .font(Theme.cardAmount)
+                .cardAmountFont()
                 .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
 
             if item.isMultiUnit {
                 Text(item.unitPriceLabel)

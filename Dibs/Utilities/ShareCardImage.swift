@@ -23,12 +23,4 @@ struct ShareCardImage: Transferable {
         }
         return data
     }
-
-    /// Small version for the share sheet's header.
-    @MainActor
-    var preview: Image {
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = 1
-        return renderer.uiImage.map(Image.init(uiImage:)) ?? Image(systemName: "doc.text")
-    }
 }

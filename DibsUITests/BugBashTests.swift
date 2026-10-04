@@ -280,7 +280,7 @@ final class BugBashTests: XCTestCase {
         scrollTo(button("Start a new bill"))
         tap(button("Start a new bill"), "Start a new bill")
         shot("o07-confirm")
-        tap(button("Discard this split"), "Discard")
+        tap(button("Start fresh"), "Start fresh")
         sleep(1)
         shot("o08-home")
         note("home again: \(texts().prefix(3))")
@@ -401,6 +401,64 @@ final class BugBashTests: XCTestCase {
         sleep(2)
         shot("s04-relaunched")
         note("after relaunch: receipt button=\(button("See the receipt").exists)")
+    }
+
+    func testSplitTheRestEvenly() {
+        launch("split")
+        note("before: \(texts().prefix(4)) no dibs=\(app.staticTexts["No dibs yet"].exists)")
+        app.swipeUp()
+        scrollTo(button("Split the rest evenly"))
+        tap(button("Split the rest evenly"), "Split the rest evenly")
+        shot("r01-confirm")
+        tap(button("Split it evenly"), "Split it evenly")
+        sleep(1)
+        app.swipeDown()
+        shot("r02-covered")
+        note("after: \(texts().prefix(4)) no dibs=\(app.staticTexts["No dibs yet"].exists) add person=\(button("Add another person").exists)")
+        tap(app.staticTexts["Sam"].firstMatch, "expand Sam")
+        shot("r03-sam")
+        note("sam: \(texts())")
+    }
+
+    func testHistory() {
+        launch(nil, extra: ["-resetBill"])
+        note("fresh home: history button=\(button("History").exists)")
+        launch("split")
+        let before = texts().prefix(4)
+        app.swipeUp()
+        scrollTo(button("Start a new bill"))
+        tap(button("Start a new bill"), "Start a new bill")
+        shot("h01-confirm")
+        tap(button("Start fresh"), "Start fresh")
+        sleep(1)
+        shot("h02-home")
+        tap(button("History"), "History")
+        shot("h03-history")
+        note("history: \(texts())")
+        tap(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Sam'")).firstMatch, "open the split")
+        sleep(1)
+        shot("h04-reopened")
+        note("reopened: \(texts().prefix(4)) was: \(before)")
+    }
+
+    func testPaymentMethods() {
+        launch("split")
+        app.swipeUp()
+        let add = button("Add how you get paid to share pay links")
+        note("plain share offered: \(button("Share what everyone owes").exists)")
+        tap(add.exists ? add : button("Edit"), "open the payout sheet")
+        shot("p01-sheet")
+        tap(button("Cash App"), "Cash App")
+        let field = app.textFields.firstMatch
+        if field.waitForExistence(timeout: 3) {
+            field.tap()
+            field.typeText("dibs-tester")
+        }
+        shot("p02-cashapp")
+        tap(button("Save"), "Save")
+        sleep(1)
+        shot("p03-saved")
+        note("after save: \(texts().filter { $0.contains("Cash App") || $0.contains("dibs-tester") }) links=\(button("Share everyone's pay-me links").exists)")
     }
 
     func testBottomOfSplitScreenIsReachable() {

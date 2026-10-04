@@ -11,7 +11,7 @@ struct CountStepper: View {
                 RoundGlassButton(title: "One fewer", systemImage: "minus", diameter: 52) { step(-1) }
                     .disabled(count <= range.lowerBound)
                 Text("\(count)")
-                    .font(Theme.counter)
+                    .counterFont()
                     .monospacedDigit()
                     .frame(minWidth: 72)
                     .contentTransition(.numericText(value: Double(count)))

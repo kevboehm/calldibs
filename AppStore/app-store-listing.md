@@ -40,10 +40,12 @@ iPad and Apple Watch: leave empty; the app is iPhone only.
     • Ordered three of something and only had one? Claim just yours
     • Shared a bottle or an appetizer? Split a single item between people
     • A running total of what is covered and what nobody has claimed yet
+    • Shared plates nobody claimed? Split the rest evenly in one tap
+    • Past splits kept in History on your phone, ready to open or share again
     • Fix anything the scan got wrong, or type the bill in by hand
 
     GETTING PAID BACK
-    Add your Venmo handle and send each person a link that opens Venmo with their amount filled in. Or share the whole split as a picture in the group chat. Call Dibs never handles money itself.
+    Add your Venmo, Cash App or PayPal handle and send each person a link that opens with their amount filled in. Or share the whole split as a picture or a list in the group chat. Call Dibs never handles money itself.
 
     PRIVATE BY DESIGN
     No account and no sign-up. The receipt is read on your phone and nothing is uploaded.
@@ -86,7 +88,7 @@ Notes:
 
     No account or sign-in. Tap "Scan a receipt", then either photograph a printed restaurant receipt, choose a photo of one from the library, or tap "Enter items manually" to type a bill in without a receipt.
 
-    The receipt is read on-device. The app makes no network requests and collects no data. The Venmo links open the Venmo app (or venmo.com) with the amount filled in; Call Dibs does not process payments.
+    The receipt is read on-device. The app makes no network requests and collects no data. The Venmo, Cash App and PayPal links open that app (or its website) with the amount filled in; Call Dibs does not process payments.
 
 ### Version Release
 

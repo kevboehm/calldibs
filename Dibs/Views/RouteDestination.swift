@@ -38,7 +38,7 @@ struct RouteDestination: View {
                     session.beginEditing(person)
                     flow.path = [.overview, .name]
                 } onNewBill: {
-                    flow.path.removeAll()
+                    flow.finish()
                 }
             }
         }

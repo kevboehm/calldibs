@@ -13,6 +13,9 @@ struct HomeView: View {
     @State private var showPhotoPicker = false
     @State private var photoItem: PhotosPickerItem?
 
+    @State private var showHistory = false
+    @State private var hasHistory = false
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The logo stamps itself onto the screen the first time it shows.
     @State private var stamped = false
@@ -61,23 +64,41 @@ struct HomeView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .actionBar {
-                PrimaryButton("Scan a receipt", systemImage: "camera.fill") {
-                    showSourceDialog = true
+                VStack(spacing: Theme.Spacing.medium) {
+                    PrimaryButton("Scan a receipt", systemImage: "camera.fill") {
+                        showSourceDialog = true
+                    }
+                    .disabled(scan.isParsing)
+
+                    if hasHistory {
+                        Button("History", systemImage: "clock.arrow.circlepath") { showHistory = true }
+                    }
                 }
-                .disabled(scan.isParsing)
             }
             .paperScreen()
             .overlay {
                 if scan.isParsing {
-                    ProgressView("Reading receipt…")
-                        .padding(Theme.Spacing.large)
-                        .paperCard(torn: false)
+                    ZStack {
+                        Theme.Palette.ground.opacity(0.7)
+                            .ignoresSafeArea()
+                        ReadingReceiptCard()
+                    }
+                    .transition(.opacity)
                 }
             }
+            .animation(.smooth, value: scan.isParsing)
+            .sheet(isPresented: $showHistory, onDismiss: refreshHistory) {
+                HistoryView(onOpen: flow.reopen)
+            }
             .onAppear(perform: restoreBill)
+            .onAppear(perform: refreshHistory)
             .onChange(of: scenePhase) { saveBill() }
-            .onChange(of: flow.path) { saveBill() }
+            .onChange(of: flow.path) {
+                saveBill()
+                refreshHistory()
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                flow.archive()
                 discardBill()
             }
             .navigationDestination(for: Route.self) { route in
@@ -117,12 +138,14 @@ struct HomeView: View {
     // the app being closed, evicted in the background, or crashing. iOS only
     // sometimes tells an app it is being terminated (never once suspended),
     // so clearing on that notice is best effort; "Start a new bill" is the
-    // dependable way to discard one.
+    // dependable way to put one away. Either way a bill that anyone called
+    // dibs on goes to History first.
     private func restoreBill() {
         #if DEBUG
         // Lets UI tests start from a clean home screen.
         if ProcessInfo.processInfo.arguments.contains("-resetBill") {
             BillStore.clear()
+            HistoryStore.clear()
             return
         }
         if let path = UserDefaults.standard.string(forKey: "seedScan"), flow.session == nil {
@@ -141,6 +164,10 @@ struct HomeView: View {
 
     private func discardBill() {
         BillStore.clear()
+    }
+
+    private func refreshHistory() {
+        hasHistory = !HistoryStore.isEmpty
     }
 
     private var errorIsPresented: Binding<Bool> {

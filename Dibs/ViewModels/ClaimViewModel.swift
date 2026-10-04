@@ -175,6 +175,12 @@ final class ClaimViewModel {
         receipt.items[index].split(into: parts)
     }
 
+    /// Shares everything nobody called dibs on equally between everyone who
+    /// took a turn.
+    func splitRemainderEvenly() {
+        receipt.splitUnclaimedEvenly(among: people.map(\.id))
+    }
+
     // MARK: - Totals
 
     func summary(for person: Person) -> ShareSummary {

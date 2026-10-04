@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Shared design constants, so every screen uses the same spacing, rounding,
-/// colors and money typography.
+/// and colors. The money typography is in `ScaledFont`.
 enum Theme {
     enum Spacing {
         static let small: CGFloat = 8
@@ -32,11 +32,4 @@ enum Theme {
         /// The stamp slamming down.
         static let stamp = Animation.bouncy(duration: 0.26, extraBounce: 0.2)
     }
-
-    /// The big "you owe" number.
-    static let heroAmount = Font.system(size: 56, weight: .bold, design: .rounded)
-    /// Prices on the swipe card.
-    static let cardAmount = Font.system(size: 40, weight: .semibold, design: .monospaced)
-    /// The count in the quantity pickers.
-    static let counter = Font.system(size: 48, weight: .bold, design: .rounded)
 }

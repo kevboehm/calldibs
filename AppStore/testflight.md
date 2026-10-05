@@ -7,15 +7,14 @@ Text to paste into App Store Connect, in the order the site asks for it.
 | Field | Value |
 | --- | --- |
 | Platform | iOS |
-| Name | Call Dibs |
+| Name | Call Dibs: Receipt Splitter |
 | Primary language | English (U.S.) |
 | Bundle ID | com.kevinboehm.CallDibs |
 | SKU | calldibs-ios |
 | User access | Full Access |
 
-The name must be unique across the App Store. If "Call Dibs" is taken, try
-"Call Dibs: Split the Bill"; the name on the home screen stays "Call Dibs"
-either way.
+"Call Dibs" on its own was taken on the App Store. The name on the home
+screen is still "Call Dibs".
 
 ## 2. Upload a build
 

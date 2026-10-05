@@ -100,6 +100,7 @@ Manually release this version.
 
 | Field | Value |
 | --- | --- |
+| Name | Call Dibs: Receipt Splitter |
 | Subtitle | Split the bill by who had what |
 | Primary category | Finance |
 | Secondary category | Food & Drink |

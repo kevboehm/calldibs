@@ -1,6 +1,6 @@
 # Call Dibs Privacy Policy
 
-Last updated: October 3, 2026
+Last updated: October 5, 2026
 
 Call Dibs splits a restaurant bill. It does not collect, transmit or sell any
 information about you.
@@ -11,8 +11,8 @@ information about you.
   find the items and prices. It is kept on your phone with the bill in
   progress, so you can check the bill against it, and deleted with that bill.
   It is not uploaded anywhere.
-- **The bill in progress.** The items, the names you type in and who claimed
-  what are saved on your phone so the bill is still there if you close the
+- **The bill in progress.** The items, the names you type in (people's and
+  the bill's) and who claimed what are saved on your phone so the bill is still there if you close the
   app.
 - **Past splits.** When you start a new bill, the one you finished is kept in
   History on your phone, without its receipt photo, so you can look at it or
@@ -44,4 +44,4 @@ photo you pick.
 
 ## Contact
 
-Questions: kboehm89@gmail.com
+Questions: kboehm89+calldibs@gmail.com

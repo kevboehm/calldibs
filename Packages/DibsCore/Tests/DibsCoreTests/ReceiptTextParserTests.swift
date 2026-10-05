@@ -670,7 +670,7 @@ private func d(_ string: String) -> Decimal { Decimal(string: string)! }
     @Test func totalAboveChargesAndTaxIsTheSubtotal() {
         let receipt = ReceiptTextParser.parse(lines: [
             "Chubby Noodle",
-            "Server: Manuela Ve. 23",
+            "Server: Marisol Ta. 23",
             "Guests: 6",
             "Description Amount",
             "MOMOKAWA SAKE $38.00*",

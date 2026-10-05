@@ -46,9 +46,9 @@ TestFlight → Test Information:
 > shared in proportion to what each person ordered. Everything runs on your
 > phone: the receipt is read on-device and nothing is uploaded.
 
-**Feedback Email:** kboehm89@gmail.com
+**Feedback Email:** kboehm89+calldibs@gmail.com
 
-**Privacy Policy URL:** the address where you host `privacy-policy.md`
+**Privacy Policy URL:** https://kevboehm.github.io/calldibs/privacy
 
 **Marketing URL:** leave blank
 
@@ -77,7 +77,7 @@ TestFlight → Test Information → Beta App Review Information:
 | --- | --- |
 | First name | Kevin |
 | Last name | Boehm |
-| Email | kboehm89@gmail.com |
+| Email | kboehm89+calldibs@gmail.com |
 | Phone | your number |
 | Sign-in required | No |
 

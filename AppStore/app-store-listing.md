@@ -56,7 +56,7 @@ iPad and Apple Watch: leave empty; the app is iPhone only.
 
 ### Support URL
 
-A public page where people can reach you. Required.
+    https://kevboehm.github.io/calldibs/support
 
 ### Marketing URL
 
@@ -82,7 +82,7 @@ Pick the build once it finishes processing (10 to 30 minutes after upload).
 | First name | Kevin |
 | Last name | Boehm |
 | Phone | your number |
-| Email | kboehm89@gmail.com |
+| Email | kboehm89+calldibs@gmail.com |
 
 Notes:
 
@@ -108,7 +108,7 @@ Manually release this version.
 
 | Field | Value |
 | --- | --- |
-| Privacy Policy URL | where you host `privacy-policy.md`. Required. |
+| Privacy Policy URL | https://kevboehm.github.io/calldibs/privacy |
 | Data collection | "No, we do not collect data from this app" |
 
 ## Pricing and Availability

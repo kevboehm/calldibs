@@ -5,11 +5,15 @@ other pages that must be filled in before "Add for Review" works.
 
 ## Version page (Distribution → 1.0 Prepare for Submission)
 
-### Screenshots (iPhone 6.9" Display)
+### Screenshots
 
-Drag in the six files from `AppStore/screenshots/`, in name order. They are
-1320 × 2868, taken on an iPhone 17 Pro Max; App Store Connect scales them
-for the smaller sizes. The first three show on the install sheet.
+Drag in the six files in name order. The first three show on the install
+sheet. There are two sets of the same pictures:
+
+- **iPhone 6.5" Display:** `AppStore/screenshots/6.5-inch/`, 1284 × 2778.
+- **iPhone 6.9" Display:** `AppStore/screenshots/`, 1320 × 2868.
+
+Use the set that matches the slot the page shows; one set is enough.
 
 1. `01-home.png`
 2. `02-bill.png`

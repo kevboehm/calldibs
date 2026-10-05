@@ -9,6 +9,7 @@ around until the bill is covered.
   <img src="AppStore/screenshots/02-bill.png" width="200" alt="The scanned bill">
   <img src="AppStore/screenshots/03-swipe.png" width="200" alt="Swiping to call dibs">
   <img src="AppStore/screenshots/04-checklist.png" width="200" alt="Checklist view">
+  <img src="AppStore/screenshots/06-split.png" width="200" alt="The split, with pay links">
 </p>
 
 ## What it does

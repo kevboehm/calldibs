@@ -5,10 +5,11 @@ other pages that must be filled in before "Add for Review" works.
 
 ## Version page (Distribution → 1.0 Prepare for Submission)
 
-### Screenshots (iPhone 6.5" Display)
+### Screenshots (iPhone 6.9" Display)
 
 Drag in the six files from `AppStore/screenshots/`, in name order. They are
-1284 × 2778. The first three show on the install sheet.
+1320 × 2868, taken on an iPhone 17 Pro Max; App Store Connect scales them
+for the smaller sizes. The first three show on the install sheet.
 
 1. `01-home.png`
 2. `02-bill.png`
@@ -41,11 +42,12 @@ iPad and Apple Watch: leave empty; the app is iPhone only.
     • Shared a bottle or an appetizer? Split a single item between people
     • A running total of what is covered and what nobody has claimed yet
     • Shared plates nobody claimed? Split the rest evenly in one tap
+    • Name the bill, so "Dinner at Nopa" is on everything you share
     • Past splits kept in History on your phone, ready to open or share again
     • Fix anything the scan got wrong, or type the bill in by hand
 
     GETTING PAID BACK
-    Add your Venmo, Cash App or PayPal handle and send each person a link that opens with their amount filled in. Or share the whole split as a picture or a list in the group chat. Call Dibs never handles money itself.
+    Add your Venmo, Cash App or PayPal handle and send each person a link that opens with their amount filled in, or send everyone's links to the group chat in one tap. On Venmo you can request each share directly. You can also share the whole split as a picture. Call Dibs never handles money itself.
 
     PRIVATE BY DESIGN
     No account and no sign-up. The receipt is read on your phone and nothing is uploaded.

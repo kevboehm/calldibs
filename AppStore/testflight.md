@@ -56,7 +56,7 @@ TestFlight → the build → Test Details:
 
 **What to Test**
 
-> First build. Please try it on a real restaurant receipt.
+> Please try it on a real restaurant receipt.
 >
 > - Scan a receipt with the camera, or pick a photo of one. Check that the
 >   items, quantities, prices, tax and total match the paper.
@@ -65,8 +65,10 @@ TestFlight → the build → Test Details:
 > - For an item with a quantity above 1, claim only some of them.
 > - Pass the phone to someone else and have them claim theirs.
 > - Change the tip on your own receipt and check your total.
+> - Name the bill, on the bill screen or the split screen.
 > - On the split screen, check each person's total, add your Venmo, Cash App or PayPal handle,
->   and share the pay links or the picture of the split.
+>   and send the pay links or the picture of the split.
+> - Tap Done, then find the bill by name in History.
 >
 > Tell me about receipts it reads wrong (a photo of the receipt helps most),
 > totals that look off, and anything confusing.

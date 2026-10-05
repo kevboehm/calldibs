@@ -5,20 +5,24 @@ import SwiftUI
 struct MoneyField: View {
     @Binding var amount: Decimal
 
+    @Environment(\.money) private var money
+
     @State private var text = ""
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        TextField("0.00", text: $text)
-            .keyboardType(.decimalPad)
+        TextField(display(0, blankWhenZero: false), text: $text)
+            .keyboardType(money.fractionDigits == 0 ? .numberPad : .decimalPad)
             .multilineTextAlignment(.trailing)
             .monospacedDigit()
             .focused($isFocused)
-            .onAppear { text = Self.display(amount) }
+            .onAppear { text = display(amount) }
             .onChange(of: text) { commit() }
-            // Tidy to two decimals once they finish, and pick up outside changes.
-            .onChange(of: isFocused) { if !isFocused { text = Self.display(amount) } }
-            .onChange(of: amount) { if !isFocused { text = Self.display(amount) } }
+            // Tidy to the currency's decimals once they finish, and pick up
+            // outside changes.
+            .onChange(of: isFocused) { if !isFocused { text = display(amount) } }
+            .onChange(of: amount) { if !isFocused { text = display(amount) } }
+            .onChange(of: money) { text = display(amount) }
     }
 
     private func commit() {
@@ -28,7 +32,10 @@ struct MoneyField: View {
         amount = Decimal(string: cleaned, locale: Locale(identifier: "en_US_POSIX")) ?? 0
     }
 
-    private static func display(_ amount: Decimal) -> String {
-        amount == 0 ? "" : amount.formatted(.number.precision(.fractionLength(2)).grouping(.never))
+    /// Two decimals, or none for a currency without them.
+    private func display(_ amount: Decimal, blankWhenZero: Bool = true) -> String {
+        amount == 0 && blankWhenZero
+            ? ""
+            : amount.formatted(.number.precision(.fractionLength(money.fractionDigits)).grouping(.never))
     }
 }

@@ -19,7 +19,7 @@ struct VisionReceiptParser: ReceiptParser {
         let lines = rows.map(\.text)
         DebugLog.ocr(lines)
 
-        let rules = ReceiptTextParser.parseWithSources(rows: rows)
+        let rules = ReceiptTextParser.parseWithSources(rows: rows, homeCurrency: Money.deviceCode)
         var receipt = rules.receipt
         var itemRows = rules.itemLines
         if let improved = await LanguageModelReceiptParser.improve(rules.receipt, lines: lines) {

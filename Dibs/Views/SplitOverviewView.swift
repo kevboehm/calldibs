@@ -4,6 +4,7 @@ import DibsCore
 /// Everyone's totals, plus whatever nobody has claimed yet. Also the hub for
 /// going back into anyone's turn.
 struct SplitOverviewView: View {
+    @Environment(\.money) private var money
     var session: ClaimViewModel
     let onAddPerson: () -> Void
     let onEdit: (Person.ID) -> Void
@@ -23,8 +24,19 @@ struct SplitOverviewView: View {
         PayShare.everyoneMessage(
             people: session.people.map { (session.displayName($0), session.summary(for: $0).total) },
             method: payout.method,
-            handle: payout.handle
+            handle: payHandle,
+            money: money
         )
+    }
+
+    /// The payer's handle, or none on a bill pay links aren't offered for:
+    /// they would ask for the same number of dollars.
+    private var payHandle: String {
+        session.offersPayLinks ? payout.handle : ""
+    }
+
+    private var sharesPayLinks: Bool {
+        session.offersPayLinks && payout.hasHandle
     }
 
     private var owedTotal: Decimal {
@@ -43,6 +55,12 @@ struct SplitOverviewView: View {
     }
 
     var body: some View {
+        ScrollViewReader { scroll in
+            list(scroll)
+        }
+    }
+
+    private func list(_ scroll: ScrollViewProxy) -> some View {
         List {
             Section {
                 VStack(spacing: Theme.Spacing.medium) {
@@ -68,18 +86,21 @@ struct SplitOverviewView: View {
                         name: session.displayName(person),
                         summary: session.summary(for: person),
                         method: payout.method,
-                        payerHandle: payout.handle
+                        payerHandle: payHandle,
+                        offersPayLinks: session.offersPayLinks
                     ) {
                         onEdit(person.id)
                     } onRemove: {
                         personToRemove = person
+                    } onExpand: {
+                        withAnimation { scroll.scrollTo(person.id, anchor: .top) }
                     }
                 }
             } header: {
                 Text("Who owes what")
             } footer: {
                 if !session.people.isEmpty {
-                    Text("Open a name to see the breakdown, edit it, or remove that person.")
+                    Text("Open a name to edit it, get paid back, or remove that person.")
                 }
             }
             .receiptRow()
@@ -87,7 +108,7 @@ struct SplitOverviewView: View {
             if session.hasUnclaimedItems {
                 Section {
                     ForEach(session.receipt.unclaimedItems) { item in
-                        AmountRow(unclaimedLabel(item), item.unclaimedTotal.roundedToCents())
+                        AmountRow(item.unclaimedLabel, item.unclaimedTotal.roundedToCents())
                     }
                     if !session.people.isEmpty {
                         splitRestButton
@@ -109,7 +130,9 @@ struct SplitOverviewView: View {
 
             if !session.people.isEmpty {
                 Section {
-                    if payout.hasHandle {
+                    if !session.offersPayLinks {
+                        // Amounts only: nothing to set up.
+                    } else if payout.hasHandle {
                         HStack {
                             Label("Your \(payout.method.title)", systemImage: "arrow.up.forward.app")
                             Spacer()
@@ -127,7 +150,7 @@ struct SplitOverviewView: View {
                     if let message = everyonePayMessage {
                         ShareLink(item: message) {
                             Label(
-                                payout.hasHandle ? "Share everyone's pay-me links" : "Share what everyone owes",
+                                sharesPayLinks ? "Share everyone's pay-me links" : "Share what everyone owes",
                                 systemImage: "square.and.arrow.up"
                             )
                         }
@@ -135,7 +158,9 @@ struct SplitOverviewView: View {
                 } header: {
                     Text("Get paid back")
                 } footer: {
-                    if payout.hasHandle {
+                    if !session.offersPayLinks {
+                        Text("Pay links only work for bills in US dollars. This one is in \(money.currencyCode), so this shares the amounts without links.")
+                    } else if payout.hasHandle {
                         Text("Links open \(payout.method.title) with each person's amount filled in, ready to pay you. You confirm nothing here — they do, in \(payout.method.title).")
                     } else {
                         Text("Add your Venmo, Cash App or PayPal and each person gets a link with their amount filled in.")
@@ -201,8 +226,8 @@ struct SplitOverviewView: View {
     private var splitRestButton: some View {
         let count = session.people.count
         let title = count == 1
-            ? "Put the remaining \(Money.string(unclaimedTotal)) on \(session.displayName(session.people[0]))?"
-            : "Split the remaining \(Money.string(unclaimedTotal)) between \(count) people?"
+            ? "Put the remaining \(money.string(unclaimedTotal)) on \(session.displayName(session.people[0]))?"
+            : "Split the remaining \(money.string(unclaimedTotal)) between \(count) people?"
 
         return Button(count == 1 ? "Add the rest to their share" : "Split the rest evenly", systemImage: "person.2") {
             confirmSplitRest = true
@@ -216,15 +241,11 @@ struct SplitOverviewView: View {
         }
     }
 
-    private func unclaimedLabel(_ item: LineItem) -> String {
-        if item.isSplit { return "\(item.unclaimedQuantity)/\(item.quantity) of \(item.displayName)" }
-        return item.unclaimedQuantity > 1 ? "\(item.unclaimedQuantity) × \(item.displayName)" : item.displayName
-    }
-
     private var splitCard: ShareCard {
         ShareCard(
-            people: session.people.map { (session.displayName($0), session.summary(for: $0).total) },
-            unclaimed: unclaimedTotal
+            people: session.people.map { (session.displayName($0), session.summary(for: $0)) },
+            unclaimed: unclaimedTotal,
+            money: money
         )
     }
 }

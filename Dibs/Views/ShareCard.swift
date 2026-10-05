@@ -6,10 +6,20 @@ import DibsCore
 /// it avoids List and other views that don't render off screen.
 struct ShareCard: View {
     struct Row: Identifiable {
+        enum Style {
+            case regular
+            /// The bottom line.
+            case emphasized
+            /// A person's name and total, above what makes it up.
+            case heading
+            /// One of the lines under a heading.
+            case detail
+        }
+
         let id = UUID()
         var label: String
         var amount: String
-        var isEmphasized = false
+        var style = Style.regular
     }
 
     var eyebrow: String
@@ -54,8 +64,8 @@ struct ShareCard: View {
                             Spacer(minLength: 8)
                             Text(row.amount)
                         }
-                        .font(.system(size: row.isEmphasized ? 18 : 15, weight: row.isEmphasized ? .bold : .regular, design: .monospaced))
-                        .foregroundStyle(ink)
+                        .font(font(for: row.style))
+                        .foregroundStyle(row.style == .detail ? faded : ink)
                     }
                 }
                 .padding(.vertical, 16)
@@ -84,6 +94,15 @@ struct ShareCard: View {
         )
     }
 
+    private func font(for style: Row.Style) -> Font {
+        switch style {
+        case .regular: .system(size: 15, design: .monospaced)
+        case .emphasized: .system(size: 18, weight: .bold, design: .monospaced)
+        case .heading: .system(size: 15, weight: .semibold, design: .monospaced)
+        case .detail: .system(size: 13, design: .monospaced)
+        }
+    }
+
     private var rule: some View {
         RuleLine()
             .stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
@@ -96,40 +115,41 @@ struct ShareCard: View {
 
 extension ShareCard {
     /// One person's share: their items and how the total is made up.
-    init(summary: ShareSummary, name: String?) {
-        let percent = NSDecimalNumber(decimal: summary.person.tip.rate * 100).intValue
+    init(summary: ShareSummary, name: String?, money: Money) {
         var sections: [[Row]] = []
         if !summary.lines.isEmpty {
-            sections.append(summary.lines.map { Row(label: $0.label, amount: Money.string($0.amount)) })
+            sections.append(summary.lines.map { Row(label: $0.label, amount: money.string($0.amount)) })
         }
-        sections.append([
-            Row(label: "Subtotal", amount: Money.string(summary.claimedSubtotal)),
-            Row(label: "Tax", amount: Money.string(summary.taxShare)),
-        ] + summary.chargeShares.map { Row(label: $0.name, amount: Money.string($0.amount)) }
-            // A tip already on the bill is one of the charges above.
-            + (summary.tip == 0 ? [] : [Row(label: "Tip (\(percent)%)", amount: Money.string(summary.tip))]))
-        sections.append([Row(label: "Total", amount: Money.string(summary.total), isEmphasized: true)])
+        sections.append(
+            [Row(label: "Subtotal", amount: money.string(summary.claimedSubtotal))]
+                + summary.extras.map { Row(label: $0.label, amount: money.string($0.amount)) }
+        )
+        sections.append([Row(label: "Total", amount: money.string(summary.total), style: .emphasized)])
 
         self.init(
             eyebrow: name.map { "\($0)'s share" } ?? "My share",
-            amount: Money.string(summary.total),
+            amount: money.string(summary.total),
             caption: nil,
             sections: sections
         )
     }
 
-    /// The whole table: what each person owes, and anything nobody claimed.
-    init(people: [(name: String, total: Decimal)], unclaimed: Decimal) {
-        var sections = [people.map { Row(label: $0.name, amount: Money.string($0.total)) }]
-        if unclaimed > 0 {
-            sections.append([Row(label: "No dibs yet, before tax and tip", amount: Money.string(unclaimed))])
+    /// The whole table: what each person owes and what it is made up of,
+    /// and anything nobody claimed.
+    init(people: [(name: String, summary: ShareSummary)], unclaimed: Decimal, money: Money) {
+        var sections = people.map { person in
+            [Row(label: person.name, amount: money.string(person.summary.total), style: .heading)]
+                + person.summary.breakdown.map { Row(label: $0.label, amount: money.string($0.amount), style: .detail) }
         }
-        let total = people.reduce(0) { $0 + $1.total }
-        sections.append([Row(label: unclaimed > 0 ? "Covered so far" : "Total", amount: Money.string(total), isEmphasized: true)])
+        if unclaimed > 0 {
+            sections.append([Row(label: "No dibs yet, before tax and tip", amount: money.string(unclaimed))])
+        }
+        let total = people.reduce(0) { $0 + $1.summary.total }
+        sections.append([Row(label: unclaimed > 0 ? "Covered so far" : "Total", amount: money.string(total), style: .emphasized)])
 
         self.init(
             eyebrow: "The split",
-            amount: Money.string(total),
+            amount: money.string(total),
             caption: "\(people.count) \(people.count == 1 ? "person" : "people"), tax and tip included",
             sections: sections
         )

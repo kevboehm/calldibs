@@ -3,6 +3,7 @@ import DibsCore
 
 /// Hosts the two claim front-ends over the same `ClaimViewModel`.
 struct ClaimView: View {
+    @Environment(\.money) private var money
     var session: ClaimViewModel
     @State var mode: ClaimMode
     let onReview: () -> Void
@@ -38,7 +39,7 @@ struct ClaimView: View {
                     Text("Your dibs")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text(Money.string(subtotal))
+                    Text(money.string(subtotal))
                         .font(.title2.bold())
                         .fontDesign(.monospaced)
                         .contentTransition(.numericText())

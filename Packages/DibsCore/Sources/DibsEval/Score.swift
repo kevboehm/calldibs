@@ -17,12 +17,13 @@ public struct Score: Sendable {
     public var subtotalCorrect: Bool?
     public var taxCorrect: Bool?
     public var totalCorrect: Bool?
+    public var currencyCorrect: Bool?
     /// The parse agrees with itself: items + tax come to the parsed total.
     public var reconciles = false
 
     public var isPerfect: Bool {
         matchedItems == truthItems && parsedItems == truthItems && quantityCorrect == quantityKnown
-            && subtotalCorrect != false && taxCorrect != false && totalCorrect != false
+            && subtotalCorrect != false && taxCorrect != false && totalCorrect != false && currencyCorrect != false
     }
 
     public init(parsed: Receipt, truth: GroundTruth) {
@@ -49,6 +50,7 @@ public struct Score: Sendable {
         subtotalCorrect = truth.subtotal.map { parsed.subtotal.map(cents) == cents($0) }
         taxCorrect = truth.tax.map { cents(parsed.tax) == cents($0) }
         totalCorrect = truth.total.map { parsed.total.map(cents) == cents($0) }
+        currencyCorrect = truth.currency.map { parsed.currencyCode == $0 }
         if let total = parsed.total {
             reconciles = !parsed.items.isEmpty && cents(parsed.computedTotal) == cents(total)
         }

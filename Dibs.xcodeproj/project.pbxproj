@@ -39,6 +39,7 @@
 		7BA5D6E8BCB1CC03CDCD5B13 /* PayoutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53F0AE02D94338E4573DE99C /* PayoutSettings.swift */; };
 		85F3B7A26F9E886AF26867E6 /* DebugSeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B71976DDBAA13D25146615 /* DebugSeed.swift */; };
 		86D9252AF4941CA18FEE62CF /* MiniReceiptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5FC40B3D1CA211C318E513 /* MiniReceiptView.swift */; };
+		8703C57C8E9E719C719BD931 /* CurrencyPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BED9C1C68E346D5B271A8A /* CurrencyPicker.swift */; };
 		89E87F657E90EE104432B6D0 /* AmountRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ED3EBF7594EBD131325D0BB /* AmountRow.swift */; };
 		8B0A8005E53FAC4FE9B7185C /* SplitOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E429FE6BCB55A3431C713B4 /* SplitOverviewView.swift */; };
 		932CF450E4DEF4BE39D193ED /* OweHero.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E219C74E2DFFF96232D1E93 /* OweHero.swift */; };
@@ -69,6 +70,7 @@
 		E873187B589444AB216D3156 /* ActionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 640CA1F1376753E279F0639F /* ActionBar.swift */; };
 		EA54B59C41A50B0C23B2BA5B /* ConfettiBurst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34433EAEE182AD66C3CE96E8 /* ConfettiBurst.swift */; };
 		F6B12E7BAE7DD710DDF23ACC /* PaymentHandleSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F86FACC91A8B7900570EFE03 /* PaymentHandleSheet.swift */; };
+		F6F4CBA947D1DE03A708FBBA /* SavedSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13232C283D8D7EE958D9F6E8 /* SavedSplitView.swift */; };
 		F75D6AAEACBDE7BDE8D53DDA /* ShareCardImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A615DE2226EFA46BB699BDB6 /* ShareCardImage.swift */; };
 		F884472AB4207D4EC4D62743 /* TornPaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB59EF38D85CBDF7776393D9 /* TornPaper.swift */; };
 		F9538F734232F1E49CE77E34 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF95825C125264C0C1FDB3E7 /* Theme.swift */; };
@@ -94,6 +96,7 @@
 		0ED3EBF7594EBD131325D0BB /* AmountRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountRow.swift; sourceTree = "<group>"; };
 		111FD5A98EB533FD977B69D4 /* VisionReceiptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionReceiptParser.swift; sourceTree = "<group>"; };
 		116A46F1AFAB3206F6884F82 /* NotYoursRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotYoursRow.swift; sourceTree = "<group>"; };
+		13232C283D8D7EE958D9F6E8 /* SavedSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSplitView.swift; sourceTree = "<group>"; };
 		13ED8A6418838A3DE2EFF690 /* ReceiptParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptParser.swift; sourceTree = "<group>"; };
 		188E1457F04163740A6DCF96 /* PayShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PayShare.swift; sourceTree = "<group>"; };
 		191A52B855600079A6CFF21E /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
@@ -125,6 +128,7 @@
 		7E9FC91A6D680962340D2F72 /* BugBashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugBashTests.swift; sourceTree = "<group>"; };
 		861B8B5D1C66259D5F6740D3 /* SavedSplit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSplit.swift; sourceTree = "<group>"; };
 		8834C71FF55F85BB490D5C32 /* BillStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillStore.swift; sourceTree = "<group>"; };
+		94BED9C1C68E346D5B271A8A /* CurrencyPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyPicker.swift; sourceTree = "<group>"; };
 		9A71CEE51133E8ACFFC867DF /* ScanStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanStrip.swift; sourceTree = "<group>"; };
 		9B2060BC2D12046C5A73220F /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		9B731C3526F1DE1622E955E9 /* SplitPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitPicker.swift; sourceTree = "<group>"; };
@@ -240,6 +244,7 @@
 				F90AF09D83AA392DB6E11D52 /* QuantityPicker.swift */,
 				A5BFB4E2B122193347F26E87 /* ReceiptSummaryView.swift */,
 				F92C07DF62DDBD2E4F1C12BE /* RouteDestination.swift */,
+				13232C283D8D7EE958D9F6E8 /* SavedSplitView.swift */,
 				6BDC8DB7856F8F32449DF1C9 /* ShareCard.swift */,
 				6E429FE6BCB55A3431C713B4 /* SplitOverviewView.swift */,
 				9B731C3526F1DE1622E955E9 /* SplitPicker.swift */,
@@ -270,6 +275,7 @@
 				42B9450E6906A2BEC455B48A /* ChecklistRow.swift */,
 				34433EAEE182AD66C3CE96E8 /* ConfettiBurst.swift */,
 				43FBBDDE62897D54D927F6C4 /* CountStepper.swift */,
+				94BED9C1C68E346D5B271A8A /* CurrencyPicker.swift */,
 				0743F93A19709C5263B087D1 /* DibsStamp.swift */,
 				674CFF2B22D34E1FA1FECA1D /* HomeStep.swift */,
 				DCA1E41403A829E6A9B8F603 /* MoneyField.swift */,
@@ -432,6 +438,7 @@
 				9C0AD17B9F2FAA18BA054FCE /* ClaimViewModel.swift in Sources */,
 				EA54B59C41A50B0C23B2BA5B /* ConfettiBurst.swift in Sources */,
 				273E3F6C4288E6AC7C531C99 /* CountStepper.swift in Sources */,
+				8703C57C8E9E719C719BD931 /* CurrencyPicker.swift in Sources */,
 				9926456CC6E2DADE7A41F646 /* DebugLog.swift in Sources */,
 				85F3B7A26F9E886AF26867E6 /* DebugSeed.swift in Sources */,
 				BBA9673FBE8792060E6B46A7 /* DibsApp.swift in Sources */,
@@ -463,6 +470,7 @@
 				06A15767F2E2B43B6C834A76 /* RoundGlassButton.swift in Sources */,
 				A9B009E5BB8CDA24C6174D1B /* RouteDestination.swift in Sources */,
 				1E4BEC8E89FECD854093AE33 /* SavedSplit.swift in Sources */,
+				F6F4CBA947D1DE03A708FBBA /* SavedSplitView.swift in Sources */,
 				10085E406EC96078DA29C9A3 /* ScaledFont.swift in Sources */,
 				E219F97BB5554FCB1A7C4285 /* ScanFixture.swift in Sources */,
 				FE2DA16C2547E5210ACBD249 /* ScanSource.swift in Sources */,

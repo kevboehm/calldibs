@@ -286,6 +286,7 @@ final class BugBashTests: XCTestCase {
         note("overview after edit: \(texts())")
 
         app.swipeUp()
+        app.swipeUp()
         scrollTo(button("Start a new bill"))
         tap(button("Start a new bill"), "Start a new bill")
         shot("o07-confirm")
@@ -313,6 +314,8 @@ final class BugBashTests: XCTestCase {
     func testRemovePerson() {
         launch("split")
         tap(app.staticTexts["Kevin"].firstMatch, "expand Kevin")
+        // The breakdown in the row pushes its buttons below the fold.
+        scrollTo(button("Remove Kevin"))
         tap(button("Remove Kevin"), "Remove Kevin")
         shot("d01-confirm")
         tap(button("Remove and free their dibs"), "confirm removal")
@@ -434,6 +437,9 @@ final class BugBashTests: XCTestCase {
         note("fresh home: history button=\(button("History").exists)")
         launch("split")
         let before = texts().prefix(4)
+        shot("h00-split")
+        // Twice: each person's breakdown makes the split a long screen.
+        app.swipeUp()
         app.swipeUp()
         scrollTo(button("Start a new bill"))
         tap(button("Start a new bill"), "Start a new bill")
@@ -446,7 +452,12 @@ final class BugBashTests: XCTestCase {
         note("history: \(texts())")
         tap(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Sam'")).firstMatch, "open the split")
         sleep(1)
-        shot("h04-reopened")
+        shot("h04-audit")
+        note("audit: \(texts())")
+        scrollTo(button("Reopen this split"))
+        tap(button("Reopen this split"), "Reopen this split")
+        sleep(1)
+        shot("h05-reopened")
         note("reopened: \(texts().prefix(4)) was: \(before)")
     }
 
@@ -468,6 +479,39 @@ final class BugBashTests: XCTestCase {
         sleep(1)
         shot("p03-saved")
         note("after save: \(texts().filter { $0.contains("Cash App") || $0.contains("dibs-tester") }) links=\(button("Share everyone's pay-me links").exists)")
+    }
+
+    func testBillInAnotherCurrency() {
+        launch("bill", extra: ["-seedCurrency", "EUR"])
+        note("bill: \(texts().filter { $0.contains("€") || $0.contains("EUR") }.prefix(6))")
+        tap(button("Edit"), "Edit")
+        scrollTo(button("Change"))
+        tap(button("Change"), "Change currency")
+        sleep(1)
+        shot("c01-picker")
+        let search = app.searchFields.firstMatch
+        if search.waitForExistence(timeout: 3) {
+            search.tap()
+            search.typeText("yen")
+        }
+        shot("c02-search")
+        tap(app.buttons.matching(NSPredicate(format: "label CONTAINS 'JPY'")).firstMatch, "Japanese Yen")
+        sleep(1)
+        shot("c03-yen")
+        note("after picking yen: \(texts().filter { $0.contains("¥") || $0.contains("JPY") }.prefix(6))")
+
+        launch("split", extra: ["-seedCurrency", "EUR"])
+        app.swipeUp()
+        app.swipeUp()
+        sleep(1)
+        shot("c04-split-bottom")
+        note("pay links offered: \(button("Add how you get paid to share pay links").exists || button("Share everyone's pay-me links").exists) plain share: \(button("Share what everyone owes").exists)")
+        note("footer: \(texts().filter { $0.contains("US dollars") })")
+
+        launch("share", extra: ["-seedCurrency", "EUR"])
+        sleep(1)
+        shot("c05-share")
+        note("share: \(texts().filter { $0.contains("€") || $0.contains("Tip") }.prefix(8))")
     }
 
     func testBottomOfSplitScreenIsReachable() {

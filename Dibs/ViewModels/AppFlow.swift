@@ -78,6 +78,10 @@ final class AppFlow {
     }
 
     func start(with receipt: Receipt, scan: ScanSource? = nil, scanImage: UIImage? = nil) {
+        var receipt = receipt
+        // A bill that doesn't say is in the phone's currency, and stays in
+        // it if the phone's region changes later.
+        receipt.currencyCode = receipt.currencyCode ?? Money.deviceCode
         let session = ClaimViewModel(receipt: receipt)
         session.scan = scan
         session.scanImage = scanImage

@@ -19,13 +19,18 @@ public enum LanguageModelReceiptParser {
     /// The model's reading, or nil when it is not better than `rules`: it
     /// must add up to its own total and use only amounts printed on the receipt.
     public static func improve(_ rules: Receipt, lines: [String]) async -> Receipt? {
-        guard isAvailable, rules.reconciles != true, let read = try? await parse(lines: lines) else { return nil }
-        let printed = Set(lines.flatMap { $0.matches(of: #/\d[\d,]*\.\d{2}/#).compactMap { amount(String($0.output)) } })
+        // Amounts are read the way the rules read them: "12,50" on a euro
+        // receipt, whole numbers on a yen one.
+        let format = PriceFormat(lines: lines, currencyCode: rules.currencyCode)
+        guard isAvailable, rules.reconciles != true,
+              var read = try? await parse(lines: lines, format: format) else { return nil }
+        let printed = Set(lines.flatMap(format.amounts))
         guard read.reconciles == true, read.items.allSatisfy({ printed.contains($0.lineTotal) }) else { return nil }
+        read.currencyCode = rules.currencyCode
         return read
     }
 
-    public static func parse(lines: [String]) async throws -> Receipt {
+    public static func parse(lines: [String], format: PriceFormat = .standard) async throws -> Receipt {
         let session = LanguageModelSession(instructions: """
             You read the text of a restaurant receipt, one printed row per line, and list what was bought. \
             Copy names and amounts exactly as printed. Never invent or correct an amount.
@@ -35,21 +40,16 @@ public enum LanguageModelReceiptParser {
         let read = try await session.respond(to: text, generating: ReadReceipt.self).content
 
         let items = read.items.compactMap { item -> LineItem? in
-            guard let total = amount(item.lineTotal), total > 0 else { return nil }
+            guard let total = format.amount(item.lineTotal), total > 0 else { return nil }
             let quantity = max(1, item.quantity)
             return LineItem(name: item.name, unitPrice: total / Decimal(quantity), quantity: quantity)
         }
         return Receipt(
             items: items,
-            tax: read.tax.flatMap(amount) ?? 0,
-            subtotal: read.subtotal.flatMap(amount),
-            total: read.total.flatMap(amount)
+            tax: read.tax.flatMap(format.amount) ?? 0,
+            subtotal: read.subtotal.flatMap(format.amount),
+            total: read.total.flatMap(format.amount)
         )
-    }
-
-    private static func amount(_ text: String) -> Decimal? {
-        let digits = text.filter { $0.isNumber || $0 == "." }
-        return Decimal(string: digits, locale: Locale(identifier: "en_US_POSIX"))
     }
 }
 

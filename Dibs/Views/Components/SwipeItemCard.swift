@@ -3,6 +3,7 @@ import DibsCore
 
 /// The card for one item in the swipe stack.
 struct SwipeItemCard: View {
+    @Environment(\.money) private var money
     let item: LineItem
     let claimed: Int
     let available: Int
@@ -34,14 +35,14 @@ struct SwipeItemCard: View {
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
 
-            Text(Money.string(item.lineTotal.roundedToCents()))
+            Text(money.string(item.lineTotal.roundedToCents()))
                 .cardAmountFont()
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
 
             if item.isMultiUnit {
-                Text(item.unitPriceLabel)
+                Text(item.unitPriceLabel(money))
                     .foregroundStyle(.secondary)
             }
 

@@ -3,6 +3,7 @@ import DibsCore
 
 /// One bill line in checklist mode, for the person currently claiming.
 struct ChecklistRow: View {
+    @Environment(\.money) private var money
     let item: LineItem
     let claimed: Int
     let available: Int
@@ -27,7 +28,7 @@ struct ChecklistRow: View {
             } else if available < item.quantity {
                 parts.append("\(available) left")
             }
-            parts.append(item.unitPriceLabel)
+            parts.append(item.unitPriceLabel(money))
         }
         if let othersClaims {
             parts.append(DibsCopy.others(othersClaims))
@@ -55,7 +56,7 @@ struct ChecklistRow: View {
 
             Spacer()
 
-            Text(Money.string(item.lineTotal.roundedToCents()))
+            Text(money.string(item.lineTotal.roundedToCents()))
                 .fontDesign(.monospaced)
                 .strikethrough(isExhausted)
                 .foregroundStyle(claimed > 0 ? .primary : .secondary)

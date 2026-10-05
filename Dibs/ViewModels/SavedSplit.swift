@@ -10,15 +10,26 @@ struct SavedSplit: Codable, Identifiable {
     /// The bill and who had what. The receipt photo is not kept.
     var snapshot: BillSnapshot
 
+    /// The currency the bill was in.
+    var money: Money { snapshot.receipt.money }
+
     /// Everyone on the split, e.g. "Sam, Kevin and Person 3".
     var names: String {
-        snapshot.people.enumerated()
-            .map { $1.name.isEmpty ? "Person \($0 + 1)" : $1.name }
-            .formatted(.list(type: .and))
+        shares.map(\.name).formatted(.list(type: .and))
     }
 
     /// What everyone owes between them, tax and tip included.
     var total: Decimal {
-        snapshot.people.reduce(0) { $0 + ShareCalculator.summary(for: snapshot.receipt, person: $1).total }
+        shares.reduce(0) { $0 + $1.summary.total }
+    }
+
+    /// Each person and what they owed, in the order they went.
+    var shares: [(name: String, summary: ShareSummary)] {
+        snapshot.people.enumerated().map { index, person in
+            (
+                person.name.isEmpty ? "Person \(index + 1)" : person.name,
+                ShareCalculator.summary(for: snapshot.receipt, person: person)
+            )
+        }
     }
 }

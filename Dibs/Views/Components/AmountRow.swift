@@ -2,6 +2,7 @@ import SwiftUI
 
 /// A label with a money amount on the trailing edge.
 struct AmountRow: View {
+    @Environment(\.money) private var money
     let title: String
     let amount: Decimal
     var isTotal = false
@@ -14,7 +15,7 @@ struct AmountRow: View {
 
     var body: some View {
         LabeledContent(title) {
-            Text(Money.string(amount))
+            Text(money.string(amount))
                 .fontDesign(.monospaced)
                 .foregroundStyle(.primary)
                 .contentTransition(.numericText())

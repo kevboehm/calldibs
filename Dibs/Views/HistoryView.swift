@@ -1,8 +1,8 @@
 import SwiftUI
 import DibsCore
 
-/// Past splits, newest first. Opening one brings it back as the bill in
-/// hand, so it can be checked, changed or shared again.
+/// Past splits, newest first. Opening one shows what everyone owed; from
+/// there it can be brought back as the bill in hand.
 struct HistoryView: View {
     let onOpen: (SavedSplit) -> Void
 
@@ -14,9 +14,11 @@ struct HistoryView: View {
             List {
                 Section {
                     ForEach(splits) { split in
-                        Button {
-                            dismiss()
-                            onOpen(split)
+                        NavigationLink {
+                            SavedSplitView(split: split) {
+                                dismiss()
+                                onOpen(split)
+                            }
                         } label: {
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -26,12 +28,10 @@ struct HistoryView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text(Money.string(split.total))
+                                Text(split.money.string(split.total))
                                     .fontDesign(.monospaced)
                             }
-                            .contentShape(.rect)
                         }
-                        .buttonStyle(.plain)
                     }
                     .onDelete(perform: delete)
                 } footer: {

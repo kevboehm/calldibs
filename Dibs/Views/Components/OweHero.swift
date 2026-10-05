@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The headline number at the top of a summary screen.
 struct OweHero: View {
+    @Environment(\.money) private var money
     let caption: String
     let amount: Decimal
     var footnote: String?
@@ -13,7 +14,7 @@ struct OweHero: View {
             Text(caption)
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Text(Money.string(amount))
+            Text(money.string(amount))
                 .heroAmountFont()
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)

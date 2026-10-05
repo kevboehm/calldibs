@@ -3,29 +3,44 @@ import Foundation
 /// Turns recognized text lines (top to bottom) into a best-effort `Receipt`.
 /// Knows nothing about images or OCR, so it can be tuned against plain strings.
 public enum ReceiptTextParser {
-    public static func parse(lines: [String]) -> Receipt {
-        parseWithSources(lines: lines).receipt
+    /// `homeCurrency` is the currency of the phone's region, which settles
+    /// what a "$" on the receipt means. See `CurrencyDetector`.
+    public static func parse(lines: [String], homeCurrency: String? = nil) -> Receipt {
+        parseWithSources(lines: lines, homeCurrency: homeCurrency).receipt
     }
 
     /// The receipt, plus which of `lines` each item was read from (its name
     /// line and its price line, when those are different rows), so the item
     /// can be shown next to that part of the photo.
-    public static func parseWithSources(lines: [String]) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
-        parse(lines: lines, rows: nil)
+    public static func parseWithSources(
+        lines: [String],
+        homeCurrency: String? = nil
+    ) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
+        parse(lines: lines, rows: nil, homeCurrency: homeCurrency)
     }
 
     /// The same from OCR rows, whose positions in the photo help tell a
     /// name that wrapped onto a second line from a line of its own.
-    public static func parse(rows: [OCRRow]) -> Receipt {
-        parseWithSources(rows: rows).receipt
+    public static func parse(rows: [OCRRow], homeCurrency: String? = nil) -> Receipt {
+        parseWithSources(rows: rows, homeCurrency: homeCurrency).receipt
     }
 
-    public static func parseWithSources(rows: [OCRRow]) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
-        parse(lines: rows.map(\.text), rows: rows)
+    public static func parseWithSources(
+        rows: [OCRRow],
+        homeCurrency: String? = nil
+    ) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
+        parse(lines: rows.map(\.text), rows: rows, homeCurrency: homeCurrency)
     }
 
-    private static func parse(lines: [String], rows: [OCRRow]?) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
-        let entries = entries(from: lines, rows: rows)
+    private static func parse(
+        lines: [String],
+        rows: [OCRRow]?,
+        homeCurrency: String?
+    ) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
+        // Which currency it is decides how its amounts are written.
+        let currency = CurrencyDetector.detect(lines: lines, homeCurrency: homeCurrency)
+        let format = PriceFormat(lines: lines, currencyCode: currency)
+        let entries = entries(from: lines, rows: rows, format: format)
 
         // Items are printed first; from the first subtotal, tax or total line
         // on, a priced line is a summary, a payment or a tip suggestion.
@@ -53,10 +68,10 @@ public enum ReceiptTextParser {
             itemEntries.removeSubrange(index...)
         }
 
-        var items = itemEntries.map { makeItem(label: $0.label, linePrice: $0.price) }
+        var items = itemEntries.map { makeItem(label: $0.label, linePrice: $0.price, places: format.places) }
         var itemLines: [LineItem.ID: [Int]] = [:]
         for (item, entry) in zip(items, itemEntries) { itemLines[item.id] = entry.lines }
-        let base = subtotal ?? sum(items)
+        var base = subtotal ?? sum(items)
 
         // Service charges, gratuities and fees printed before the total.
         var chargeEntries = entries[chargeStart..<summaryStart].filter { $0.kind == .charge && !$0.isCredit }
@@ -86,6 +101,16 @@ public enum ReceiptTextParser {
             charges += discounts.map { Charge(name: cleanName($0.label), amount: -$0.price) }
         }
         let fees = charges.reduce(0) { $0 + $1.amount }
+
+        // Where prices are quoted with the tax in them, the tax line is a
+        // note: the items alone already come to the total.
+        if tax > 0, totals.contains(where: { $0.price == sum(items) + fees }),
+           !totals.contains(where: { $0.price == base + tax + fees }) {
+            tax = 0
+            // "Netto": the same items with the tax taken out.
+            if subtotal != sum(items) { subtotal = nil }
+            base = sum(items)
+        }
 
         // Charges under names the parser doesn't know ("SST 0.44"), sitting
         // between the subtotal and a total that only adds up with them.
@@ -140,9 +165,16 @@ public enum ReceiptTextParser {
             }
         }
 
+        // The same once the items are settled: a "Net" line taken for an
+        // item is gone, and what is left is the total with the tax in it.
+        if tax > 0, let total, sum(items) + fees == total {
+            tax = 0
+            if subtotal != sum(items) { subtotal = nil }
+        }
+
         let kept = Set(items.map(\.id))
         return (
-            Receipt(items: items, tax: tax, subtotal: subtotal, total: total, charges: charges),
+            Receipt(items: items, tax: tax, subtotal: subtotal, total: total, charges: charges, currencyCode: currency),
             itemLines.filter { kept.contains($0.key) }
         )
     }
@@ -191,9 +223,9 @@ public enum ReceiptTextParser {
         var lines: [Int] = []
     }
 
-    private static func entries(from lines: [String], rows: [OCRRow]?) -> [Entry] {
+    private static func entries(from lines: [String], rows: [OCRRow]?, format: PriceFormat) -> [Entry] {
         var entries: [Entry] = []
-        let layout = Layout(lines, rows: rows)
+        let layout = Layout(lines, rows: rows, format: format)
         // Name-only lines in a row, waiting to learn whose they are: the
         // price line beneath them, or the item above that they wrapped from.
         var pending: [Layout.Name] = []
@@ -221,7 +253,7 @@ public enum ReceiptTextParser {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { continue }
 
-            guard let (ownLabel, price, isCredit) = splitTrailingPrice(line) else {
+            guard let (ownLabel, price, isCredit) = splitTrailingPrice(line, format: format) else {
                 if line.contains(where: \.isLetter), !isMetadata(line.lowercased()) {
                     pending.append(Layout.Name(text: line, line: number))
                 } else {
@@ -283,7 +315,7 @@ public enum ReceiptTextParser {
         /// prices in a column of their own beside the names.
         private var nameColumn: (left: Double, right: Double)?
 
-        init(_ lines: [String], rows: [OCRRow]?) {
+        init(_ lines: [String], rows: [OCRRow]?, format: PriceFormat) {
             self.rows = rows.flatMap { rows in
                 rows.count == lines.count && rows.allSatisfy { $0.spans?.contains { $0.length > 0 } == true } ? rows : nil
             }
@@ -292,10 +324,10 @@ public enum ReceiptTextParser {
             var lastText: Int?
             for (index, line) in lines.enumerated() where !line.isEmpty {
                 defer { lastText = index }
-                guard let label = splitTrailingPrice(line)?.label else { continue }
+                guard let label = splitTrailingPrice(line, format: format)?.label else { continue }
                 if label.contains(where: \.isLetter) {
                     names.append(Name(text: label, line: index))
-                } else if let lastText, splitTrailingPrice(lines[lastText]) == nil {
+                } else if let lastText, splitTrailingPrice(lines[lastText], format: format) == nil {
                     names.append(Name(text: lines[lastText], line: lastText))
                 }
             }
@@ -457,15 +489,48 @@ public enum ReceiptTextParser {
     /// Splits "2 Burger  $19.00 T" into ("2 Burger", 19.00). Nil when the line
     /// does not end in a price. A tax flag ("T", "FS", "1") may follow the
     /// price, and a minus sign touching either side of it marks a credit.
-    static func splitTrailingPrice(_ line: String) -> (label: String, price: Decimal, isCredit: Bool)? {
-        let pattern = #/^(.*?)\s*(-\$?|\$\s?)?(\d[\d,]*)\s?[.,]\s?(\d{2})(-?)(?:\s*[A-Z*]{1,2}|\s+\d)?$/#
-        guard let match = line.wholeMatch(of: pattern) else { return nil }
-        let whole = match.3.replacingOccurrences(of: ",", with: "")
-        guard let price = Decimal(string: "\(whole).\(match.4)", locale: Locale(identifier: "en_US_POSIX")) else {
+    ///
+    /// The currency may be any sign or code on either side of the amount,
+    /// and the amount grouped the way the receipt's country does it:
+    /// "12,50 €", "CHF 1'234.50", "1.234,56".
+    static func splitTrailingPrice(
+        _ line: String,
+        format: PriceFormat = .standard
+    ) -> (label: String, price: Decimal, isCredit: Bool)? {
+        let line = CurrencyDetector.markingAmount(in: line, spaceGrouping: format.spaceGrouping)
+        if format.wholeUnits { return splitTrailingWholePrice(line, needsSign: format.needsSign) }
+
+        let match = format.spaceGrouping
+            ? line.wholeMatch(of: #/^(.*?)\s*(-\$?|\$\s?)?(\d{1,3}(?:[. ]\d{3})+,\d{2}|\d{1,3}(?:['’]\d{3})+[.,]\d{2}|\d[\d,]*\s?[.,]\s?\d{2})(-?)(?:\s*[A-Z*]{1,2}|\s+\d)?$/#)
+            : line.wholeMatch(of: #/^(.*?)\s*(-\$?|\$\s?)?(\d{1,3}(?:\.\d{3})+,\d{2}|\d{1,3}(?:['’]\d{3})+[.,]\d{2}|\d[\d,]*\s?[.,]\s?\d{2})(-?)(?:\s*[A-Z*]{1,2}|\s+\d)?$/#)
+        guard let match, let price = PriceFormat.value(of: match.3, places: 2) else { return nil }
+        let isCredit = match.2?.hasPrefix("-") == true || !match.4.isEmpty
+        return (String(match.1).trimmingCharacters(in: .whitespaces), price, isCredit)
+    }
+
+    /// The same for a currency with no decimals: "コーヒー ¥450", "Total 1,200".
+    /// Without two decimals to mark it, a number at the end of a line is
+    /// only a price when little else could explain it.
+    private static func splitTrailingWholePrice(
+        _ line: String,
+        needsSign: Bool
+    ) -> (label: String, price: Decimal, isCredit: Bool)? {
+        let pattern = #/^(.*?)\s*(-\$?|\$\s?)?(\d{1,3}(?:[.,'’]\d{3})+|\d+)(-?)(?:\s?[*※])?$/#
+        guard let match = line.wholeMatch(of: pattern), let price = PriceFormat.value(of: match.3, places: 0) else {
             return nil
         }
-        let isCredit = match.2?.hasPrefix("-") == true || !match.5.isEmpty
-        return (String(match.1).trimmingCharacters(in: .whitespaces), price, isCredit)
+        let label = String(match.1).trimmingCharacters(in: .whitespaces)
+        if match.2?.contains("$") != true {
+            guard !needsSign else { return nil }
+            let isGrouped = match.3.contains { !$0.isNumber }
+            // A table number, a head count, a phone number or a date.
+            guard isGrouped || match.3.count >= 3,
+                  label.isEmpty ? isGrouped : label.contains(where: \.isLetter),
+                  !isMetadata(label.lowercased()),
+                  !line.contains(#/\d[-\/:]\d/#) else { return nil }
+        }
+        let isCredit = match.2?.hasPrefix("-") == true || !match.4.isEmpty
+        return (label, price, isCredit)
     }
 
     private enum Kind {
@@ -483,14 +548,28 @@ public enum ReceiptTextParser {
         lower.firstMatch(of: #/^(server|cashier|waiter|host|table|guests?|check|order|ticket|date|time|tel|phone|station|terminal|invoice)\b\s*[:#.]/#) != nil
     }
 
-    private static let taxWords: Set<String> = ["tax", "taxes", "vat", "gst", "hst", "pst", "qst"]
+    // The words receipts in German, French, Italian, Spanish, Dutch and the
+    // Nordic languages use for the same lines sit beside the English ones.
+    private static let taxWords: Set<String> = [
+        "tax", "taxes", "vat", "gst", "hst", "pst", "qst",
+        "mwst", "ust", "mehrwertsteuer", "tva", "iva", "btw", "moms", "mva", "alv",
+    ]
+    private static let subtotalWords: Set<String> = [
+        "subtotal", "zwischensumme", "subtotale", "subtotaal", "delsumma", "netto",
+    ]
+    private static let totalWords: Set<String> = [
+        "total", "summe", "gesamt", "gesamtbetrag", "gesamtsumme", "endsumme", "totale", "totaal", "summa", "totalt",
+    ]
     private static let noiseWords: Set<String> = [
         "tip", "gratuity", "change", "cash", "visa", "mastercard", "amex", "discover",
         "card", "debit", "credit", "tendered", "tender", "payment", "paid",
         "savings", "saved",
+        "gegeben", "rückgeld", "kartenzahlung", "girocard", "espèces", "rendu", "contanti", "resto",
+        "efectivo", "cambio", "wisselgeld",
     ]
     private static let chargeWords: Set<String> = [
         "gratuity", "grat", "service", "svc", "surcharge", "fee", "fees", "charge", "delivery", "corkage", "cover",
+        "servizio", "servicio", "coperto", "bedienung",
     ]
     /// A gratuity line that is advice, not a charge: "Suggested gratuity 18%".
     private static let suggestionWords: Set<String> = [
@@ -506,12 +585,19 @@ public enum ReceiptTextParser {
             .replacing(#/\b(tri|sirloin)[\s-]?tip/#, with: "")
         let words = Set(lower.split(whereSeparator: { !$0.isLetter }).map(String.init))
 
-        if words.contains("subtotal") || words.contains("sub") && words.contains("total") {
+        if !words.isDisjoint(with: subtotalWords) || words.contains("sub") && words.contains("total")
+            || lower.contains("小計") || lower.contains("小计") {
             return .subtotal
         }
         // "Total 11 item(s)" is the pre-tax sum of the items.
         if words.contains("total"), words.contains("item") || words.contains("items") {
             return .subtotal
+        }
+        // Japanese and Chinese run a line's words together.
+        if lower.contains("消費税") || lower.contains("内税") || lower.contains("外税") { return .tax }
+        if lower.contains("合計") || lower.contains("合计") || lower.contains("总计") { return .total }
+        if lower.contains("お預") || lower.contains("お釣") || lower.contains("釣銭") || lower.contains("現金") {
+            return .noise
         }
         if !words.isDisjoint(with: taxWords) { return .tax }
         if !words.isDisjoint(with: discountWords) { return .discount }
@@ -523,7 +609,7 @@ public enum ReceiptTextParser {
         }
         if !words.isDisjoint(with: noiseWords) || isMetadata(lower) { return .noise }
         if words.contains("due") || lower.contains("grand total") { return .grandTotal }
-        if words.contains("total") { return .total }
+        if !words.isDisjoint(with: totalWords) { return .total }
         return .item
     }
 
@@ -531,7 +617,7 @@ public enum ReceiptTextParser {
 
     /// The price at the end of an item line is the line total, so a quantity
     /// prefix divides it. An explicit "2 @ 4.50" wins over the division.
-    private static func makeItem(label rawLabel: String, linePrice: Decimal) -> LineItem {
+    private static func makeItem(label rawLabel: String, linePrice: Decimal, places: Int) -> LineItem {
         let posix = Locale(identifier: "en_US_POSIX")
         // "Vodka($9.00)": a unit price printed after the name. The line price
         // and quantity already give it, so it is only clutter in the name.
@@ -557,27 +643,27 @@ public enum ReceiptTextParser {
         }
         // "x2 Burger"
         if let m = label.wholeMatch(of: #/^[xX×]\s?(\d{1,2})\s+(\S.*)$/#),
-           let quantity = Int(m.1), divides(quantity, linePrice) {
+           let quantity = Int(m.1), divides(quantity, linePrice, places) {
             return LineItem(name: cleanName(String(m.2)), unitPrice: linePrice / Decimal(quantity), quantity: quantity)
         }
         // "2 Burger", "2x Burger", "2 x Burger"
         if let m = label.wholeMatch(of: #/^(\d{1,2})\s*[xX×]?\s+(\S.*)$/#),
-           let quantity = Int(m.1), divides(quantity, linePrice) {
+           let quantity = Int(m.1), divides(quantity, linePrice, places) {
             return LineItem(name: cleanName(String(m.2)), unitPrice: linePrice / Decimal(quantity), quantity: quantity)
         }
         // "Burger x2"
         if let m = label.wholeMatch(of: #/^(.*\S)\s+[xX×]\s*(\d{1,2})$/#),
-           let quantity = Int(m.2), divides(quantity, linePrice) {
+           let quantity = Int(m.2), divides(quantity, linePrice, places) {
             return LineItem(name: cleanName(String(m.1)), unitPrice: linePrice / Decimal(quantity), quantity: quantity)
         }
         return LineItem(name: cleanName(label), unitPrice: linePrice, quantity: 1)
     }
 
-    /// A real quantity splits the line total into whole cents. "12 Eggs 14.00"
-    /// is one dish, not twelve.
-    private static func divides(_ quantity: Int, _ linePrice: Decimal) -> Bool {
+    /// A real quantity splits the line total into whole cents (or whole yen,
+    /// where there are none). "12 Eggs 14.00" is one dish, not twelve.
+    private static func divides(_ quantity: Int, _ linePrice: Decimal, _ places: Int) -> Bool {
         guard quantity > 0 else { return false }
-        let cents = NSDecimalNumber(decimal: linePrice * 100).intValue
+        let cents = NSDecimalNumber(decimal: linePrice * (places == 0 ? 1 : 100)).intValue
         return cents % quantity == 0
     }
 

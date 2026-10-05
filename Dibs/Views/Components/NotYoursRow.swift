@@ -4,6 +4,7 @@ import DibsCore
 /// An item (or the part of one) the current person didn't claim, with a
 /// shortcut to add a unit of it.
 struct NotYoursRow: View {
+    @Environment(\.money) private var money
     let item: LineItem
     /// Units of this item that aren't the current person's.
     let notMine: Int
@@ -24,7 +25,7 @@ struct NotYoursRow: View {
                     .font(.subheadline)
             }
             Spacer()
-            Text(Money.string((item.unitPrice * Decimal(notMine)).roundedToCents()))
+            Text(money.string((item.unitPrice * Decimal(notMine)).roundedToCents()))
                 .fontDesign(.monospaced)
             if canAdd {
                 Button("Call dibs on \(item.displayName)", systemImage: "plus.circle.fill", action: onAdd)

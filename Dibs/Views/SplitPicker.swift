@@ -3,6 +3,7 @@ import DibsCore
 
 /// Splits one item into equal shares, which are then claimed like units.
 struct SplitPicker: View {
+    @Environment(\.money) private var money
     private let item: LineItem
     /// Called with the number of shares; 1 means "not split".
     private let onConfirm: (Int) -> Void
@@ -27,7 +28,7 @@ struct SplitPicker: View {
 
             CountStepper(count: $parts, range: 2...20)
 
-            Text("\(Money.string((item.lineTotal / Decimal(parts)).roundedToCents())) per share")
+            Text("\(money.string((item.lineTotal / Decimal(parts)).roundedToCents())) per share")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .contentTransition(.numericText())

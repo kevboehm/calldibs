@@ -63,6 +63,22 @@ final class ClaimViewModel {
         )
     }
 
+    // MARK: - Currency
+
+    /// Writes amounts in the bill's currency.
+    var money: Money { receipt.money }
+
+    /// Whether a tip on top is the custom where this bill is from.
+    var tipsByDefault: Bool {
+        Currency.tipsByDefault(money.currencyCode)
+    }
+
+    /// Whether links that open Venmo, Cash App or PayPal with an amount
+    /// filled in are right for this bill: only when it is in US dollars.
+    var offersPayLinks: Bool {
+        Currency.supportsPayLinks(money.currencyCode)
+    }
+
     var trimmedName: String {
         draftName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -93,8 +109,9 @@ final class ClaimViewModel {
         } else {
             var person = Person(name: trimmedName)
             // A bill that already carries a gratuity or service charge
-            // starts with no tip on top; they can still add one.
-            if receipt.includesGratuity { person.tip.rate = 0 }
+            // starts with no tip on top, and so does one from somewhere
+            // tipping isn't the custom; they can still add one.
+            if receipt.includesGratuity || !tipsByDefault { person.tip.rate = 0 }
             people.append(person)
             currentID = person.id
         }

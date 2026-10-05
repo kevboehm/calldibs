@@ -22,6 +22,23 @@ private func d(_ string: String) -> Decimal { Decimal(string: string)! }
         )
     }
 
+    @Test func aYenSplitIsInWholeYenAndAddsUp() {
+        var receipt = Receipt(
+            items: [LineItem(name: "鍋", unitPrice: 1000)],
+            tax: 100,
+            total: 1100,
+            currencyCode: "JPY"
+        )
+        receipt.items[0].split(into: 3)
+        receipt.items[0].setClaimed(1, by: sam.id)
+
+        let summary = ShareCalculator.summary(for: receipt, person: Person(id: sam.id, name: "Sam", tip: TipConfig(rate: 0)))
+        #expect(summary.claimedSubtotal == 333)
+        #expect(summary.taxShare == 33)
+        #expect(summary.lines.map(\.amount) == [333])
+        #expect(summary.total == 366)
+    }
+
     @Test func singleUnitClaim() {
         var receipt = sampleReceipt()
         receipt.items[1].setClaimed(1, by: sam.id)

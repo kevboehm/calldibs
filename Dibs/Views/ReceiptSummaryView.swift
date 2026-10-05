@@ -5,6 +5,7 @@ import DibsCore
 /// the receipt before anyone claims. Edit turns it into a form for fixing OCR
 /// mistakes.
 struct ReceiptSummaryView: View {
+    @Environment(\.money) private var money
     @Bindable var session: ClaimViewModel
     let onContinue: () -> Void
 
@@ -13,6 +14,7 @@ struct ReceiptSummaryView: View {
     @State private var hasPrinted = false
     @State private var showScan = false
     @State private var confirmMismatch = false
+    @State private var pickingCurrency = false
 
     init(session: ClaimViewModel, onContinue: @escaping () -> Void) {
         self.session = session
@@ -167,10 +169,10 @@ struct ReceiptSummaryView: View {
     private var mismatchNotes: [String] {
         var notes: [String] = []
         if let printed = receipt.subtotal, session.subtotalMismatch {
-            notes.append("\(gapNote(session.subtotalGap, of: "The items")) the receipt's subtotal of \(Money.string(printed)).")
+            notes.append("\(gapNote(session.subtotalGap, of: "The items")) the receipt's subtotal of \(money.string(printed)).")
         }
         if let printed = receipt.total, session.totalMismatch {
-            notes.append("\(gapNote(session.totalGap, of: "This")) the receipt's total of \(Money.string(printed)).")
+            notes.append("\(gapNote(session.totalGap, of: "This")) the receipt's total of \(money.string(printed)).")
         }
         return notes
     }
@@ -191,7 +193,7 @@ struct ReceiptSummaryView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.displayName)
                         if item.isMultiUnit {
-                            Text(item.unitPriceLabel)
+                            Text(item.unitPriceLabel(money))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -200,7 +202,7 @@ struct ReceiptSummaryView: View {
                         }
                     }
                     Spacer()
-                    Text(Money.string(item.lineTotal.roundedToCents()))
+                    Text(money.string(item.lineTotal.roundedToCents()))
                         .fontDesign(.monospaced)
                 }
                 .printIn(index: index, isActive: !hasPrinted)
@@ -240,12 +242,13 @@ struct ReceiptSummaryView: View {
 
     private var totals: some View {
         Section("Totals") {
+            currencyRow
             AmountRow("Subtotal", receipt.itemsSubtotal.roundedToCents())
 
             if let printed = receipt.subtotal, session.subtotalMismatch {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(
-                        "\(gapNote(session.subtotalGap, of: "The items")) the receipt's subtotal of \(Money.string(printed)), so \(session.subtotalGap > 0 ? "an item may be missing or priced too low" : "a line may be doubled or not an item"). Edit the items, or split tax by the item sum instead.",
+                        "\(gapNote(session.subtotalGap, of: "The items")) the receipt's subtotal of \(money.string(printed)), so \(session.subtotalGap > 0 ? "an item may be missing or priced too low" : "a line may be doubled or not an item"). Edit the items, or split tax by the item sum instead.",
                         systemImage: "exclamationmark.triangle"
                     )
                     .font(.footnote)
@@ -283,7 +286,7 @@ struct ReceiptSummaryView: View {
 
             if let printed = receipt.total, session.totalMismatch {
                 Label(
-                    "\(gapNote(session.totalGap, of: "This")) the receipt's total of \(Money.string(printed)). If this bill has a service charge, fee or discount that isn't listed, tap Edit to add it.",
+                    "\(gapNote(session.totalGap, of: "This")) the receipt's total of \(money.string(printed)). If this bill has a service charge, fee or discount that isn't listed, tap Edit to add it.",
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.footnote)
@@ -293,9 +296,37 @@ struct ReceiptSummaryView: View {
         .receiptRow()
     }
 
+    /// The currency the bill was read in, when that isn't the phone's own,
+    /// and while editing a way to change it.
+    @ViewBuilder
+    private var currencyRow: some View {
+        if isEditing || money.currencyCode != Money.deviceCode {
+            HStack {
+                Text("Currency")
+                Spacer()
+                Text("\(money.name) · \(money.currencyCode)")
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if isEditing {
+                    Button("Change") {
+                        Keyboard.dismiss()
+                        pickingCurrency = true
+                    }
+                    .font(.subheadline)
+                }
+            }
+            .sheet(isPresented: $pickingCurrency) {
+                CurrencyPicker(selection: Binding(
+                    get: { money.currencyCode },
+                    set: { session.receipt.currencyCode = $0 }
+                ))
+            }
+        }
+    }
+
     /// "The items come to $4.50 less than", ready for what they fall short of.
     private func gapNote(_ gap: Decimal, of subject: String) -> String {
-        "\(subject) come\(subject == "This" ? "s" : "") to \(Money.string(abs(gap))) \(gap > 0 ? "less" : "more") than"
+        "\(subject) come\(subject == "This" ? "s" : "") to \(money.string(abs(gap))) \(gap > 0 ? "less" : "more") than"
     }
 }
 
@@ -313,6 +344,7 @@ private struct DoubtLabel: View {
 }
 
 private struct ItemEditRow: View {
+    @Environment(\.money) private var money
     @Binding var item: LineItem
     /// The row of the photo this item was read from.
     var strip: UIImage?
@@ -338,7 +370,7 @@ private struct ItemEditRow: View {
             }
 
             if item.isMultiUnit {
-                Text(item.unitPriceLabel)
+                Text(item.unitPriceLabel(money))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

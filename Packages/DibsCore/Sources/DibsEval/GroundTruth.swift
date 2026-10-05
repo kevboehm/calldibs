@@ -22,12 +22,21 @@ public struct GroundTruth: Codable, Sendable {
     public var subtotal: Double?
     public var tax: Double?
     public var total: Double?
+    /// The ISO 4217 code of the currency. Nil when it isn't to be scored.
+    public var currency: String?
 
-    public init(items: [Item], subtotal: Double? = nil, tax: Double? = nil, total: Double? = nil) {
+    public init(
+        items: [Item],
+        subtotal: Double? = nil,
+        tax: Double? = nil,
+        total: Double? = nil,
+        currency: String? = nil
+    ) {
         self.items = items
         self.subtotal = subtotal
         self.tax = tax
         self.total = total
+        self.currency = currency
     }
 }
 

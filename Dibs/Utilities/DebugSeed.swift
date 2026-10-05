@@ -4,6 +4,7 @@ import DibsCore
 
 /// Launching with `-seedScreen <name>` opens the app on that screen with a
 /// sample bill, so each screen can be checked without tapping through.
+/// `-seedCurrency <code>` puts that bill in another currency.
 /// Debug builds only.
 enum DebugSeed {
     static var requestedScreen: String? {
@@ -12,7 +13,9 @@ enum DebugSeed {
 
     static func session(for screen: String) -> (session: ClaimViewModel, path: [Route])? {
         let withCharges = screen.hasPrefix("charges")
-        let session = ClaimViewModel(receipt: sampleReceipt(withCharges: withCharges))
+        var receipt = sampleReceipt(withCharges: withCharges)
+        receipt.currencyCode = UserDefaults.standard.string(forKey: "seedCurrency")
+        let session = ClaimViewModel(receipt: receipt)
         let items = session.receipt.items
 
         func turn(_ name: String, _ claims: [(Int, Int)]) {

@@ -5,6 +5,129 @@ import Testing
 private func d(_ string: String) -> Decimal { Decimal(string: string)! }
 
 @Suite struct ReceiptTextParserTests {
+    // MARK: - Other currencies
+
+    @Test func readsAEuroReceiptWithCommaDecimals() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Gasthaus zur Post",
+            "2 Pils 0,5l          9,00 €",
+            "Schnitzel           18,50 €",
+            "Apfelstrudel         6,50 €",
+            "Summe               34,00 €",
+            "MwSt 19%             5,43 €",
+            "Bar                 40,00 €",
+            "Rückgeld             6,00 €",
+        ])
+
+        #expect(receipt.currencyCode == "EUR")
+        #expect(receipt.items.map(\.name) == ["Pils 0,5l", "Schnitzel", "Apfelstrudel"])
+        #expect(receipt.items.map(\.quantity) == [2, 1, 1])
+        #expect(receipt.itemsSubtotal == d("34.00"))
+        #expect(receipt.tax == 0)
+        #expect(receipt.total == d("34.00"))
+        #expect(receipt.reconciles == true)
+    }
+
+    @Test func readsACodeInFrontOfTheAmount() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Rösti                    CHF 24.50",
+            "Fondue für zwei       CHF 1'234.50",
+            "Total                 CHF 1'259.00",
+        ])
+
+        #expect(receipt.currencyCode == "CHF")
+        #expect(receipt.items.map(\.name) == ["Rösti", "Fondue für zwei"])
+        #expect(receipt.items.map(\.unitPrice) == [d("24.50"), d("1234.50")])
+        #expect(receipt.total == d("1259.00"))
+    }
+
+    @Test func readsEuropeanGrouping() {
+        #expect(ReceiptTextParser.splitTrailingPrice("Menü 1.234,56")?.price == d("1234.56"))
+        #expect(ReceiptTextParser.splitTrailingPrice("Menü 1.234,56 €")?.price == d("1234.56"))
+        #expect(ReceiptTextParser.splitTrailingPrice("Gutschein -5,00 €")?.isCredit == true)
+        #expect(ReceiptTextParser.splitTrailingPrice("Total 45.00 USD")?.label == "Total")
+    }
+
+    @Test func aSpaceGroupsThousandsOnlyWhereTheCommaIsTheDecimalMark() {
+        let swedish = ReceiptTextParser.parse(lines: [
+            "Avsmakningsmeny     1 250,00",
+            "Vinpaket              695,00",
+            "Summa               1 945,00 kr",
+        ])
+        #expect(swedish.currencyCode == "SEK")
+        #expect(swedish.items.map(\.unitPrice) == [d("1250.00"), d("695.00")])
+        #expect(swedish.total == d("1945.00"))
+
+        let american = ReceiptTextParser.parse(lines: ["Item 2 150.00", "Total 150.00"])
+        #expect(american.items.map(\.name) == ["Item 2"])
+        #expect(american.items.map(\.unitPrice) == [d("150.00")])
+    }
+
+    @Test func readsAYenReceipt() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "居酒屋 さくら",
+            "TEL 03-1234-5678",
+            "2026/10/03 19:45",
+            "テーブル 12",
+            "生ビール          ¥1,200",
+            "2 焼き鳥           ¥900",
+            "枝豆               ¥450",
+            "小計             ¥2,550",
+            "消費税 10%",
+            "消費税             ¥255",
+            "合計             ¥2,805",
+            "お預り           ¥3,000",
+            "お釣り             ¥195",
+        ])
+
+        #expect(receipt.currencyCode == "JPY")
+        #expect(receipt.items.map(\.name) == ["生ビール", "焼き鳥", "枝豆"])
+        #expect(receipt.items.map(\.quantity) == [1, 2, 1])
+        #expect(receipt.items.map(\.unitPrice) == [1200, 450, 450])
+        #expect(receipt.subtotal == 2550)
+        #expect(receipt.tax == 255)
+        #expect(receipt.total == 2805)
+        #expect(receipt.reconciles == true)
+    }
+
+    @Test func wholeDollarPricesNeedTheirSign() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Table 12",
+            "Burger $12",
+            "Fries $5",
+            "Total $17",
+        ])
+        #expect(receipt.items.map(\.name) == ["Burger", "Fries"])
+        #expect(receipt.total == 17)
+    }
+
+    @Test func taxAlreadyInThePricesIsNotAddedAgain() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Fish & Chips        £14.00",
+            "Pint of Bitter       £6.00",
+            "Net                 £16.67",
+            "VAT 20%              £3.33",
+            "Total               £20.00",
+        ])
+
+        #expect(receipt.currencyCode == "GBP")
+        #expect(receipt.items.map(\.name) == ["Fish & Chips", "Pint of Bitter"])
+        #expect(receipt.tax == 0)
+        #expect(receipt.total == d("20.00"))
+        #expect(receipt.reconciles == true)
+    }
+
+    @Test func aReceiptWithNoSignHasNoCurrency() {
+        let receipt = ReceiptTextParser.parse(lines: ["Burger 12.00", "Total 12.00"])
+        #expect(receipt.currencyCode == nil)
+    }
+
+    @Test func aDollarSignFollowsTheHomeCurrency() {
+        let lines = ["Poutine $12.00", "Total $12.00"]
+        #expect(ReceiptTextParser.parse(lines: lines, homeCurrency: "CAD").currencyCode == "CAD")
+        #expect(ReceiptTextParser.parse(lines: lines, homeCurrency: "EUR").currencyCode == "USD")
+    }
+
     @Test func parsesTypicalReceipt() {
         let receipt = ReceiptTextParser.parse(lines: [
             "JOE'S DINER",

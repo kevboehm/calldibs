@@ -3,6 +3,7 @@ import UIKit
 import DibsCore
 
 struct MiniReceiptView: View {
+    @Environment(\.money) private var money
     @Bindable var session: ClaimViewModel
     /// Hand the phone to the next person.
     let onPass: () -> Void
@@ -56,10 +57,10 @@ struct MiniReceiptView: View {
                 }
                 .contentTransition(.symbolEffect(.replace))
 
-                let image = ShareCardImage(card: ShareCard(summary: summary, name: name.isEmpty ? nil : name))
+                let image = ShareCardImage(card: ShareCard(summary: summary, name: name.isEmpty ? nil : name, money: money))
                 ShareLink(
                     item: image,
-                    preview: SharePreview("My share: \(Money.string(summary.total))", image: image)
+                    preview: SharePreview("My share: \(money.string(summary.total))", image: image)
                 ) {
                     Label("Share as a picture", systemImage: "square.and.arrow.up")
                 }
@@ -141,7 +142,7 @@ struct MiniReceiptView: View {
     }
 
     private func copy(_ amount: Decimal) {
-        UIPasteboard.general.string = Money.string(amount)
+        UIPasteboard.general.string = money.string(amount)
         copied = true
     }
 

@@ -14,13 +14,13 @@ public enum ShareCalculator {
     }
 
     /// Each service charge, fee or discount, allocated like tax: in proportion
-    /// to the claimed subtotal. Rounded to cents.
+    /// to the claimed subtotal. Rounded to the bill's smallest unit.
     public static func chargeShares(of receipt: Receipt, by person: Person.ID) -> [ChargeShare] {
         let base = receipt.preTaxSubtotal
         guard base > 0 else { return [] }
         let fraction = claimedSubtotal(of: receipt, by: person) / base
         return receipt.charges.compactMap { charge in
-            let amount = (charge.amount * fraction).roundedToCents()
+            let amount = (charge.amount * fraction).rounded(toPlaces: receipt.fractionDigits)
             return amount == 0 ? nil : ChargeShare(id: charge.id, name: charge.name, amount: amount)
         }
     }
@@ -34,6 +34,9 @@ public enum ShareCalculator {
     }
 
     public static func summary(for receipt: Receipt, person: Person) -> ShareSummary {
+        // Cents, or whole yen: each row is rounded as it will be shown, so
+        // the rows add up to the total.
+        let places = receipt.fractionDigits
         let lines = receipt.items.compactMap { item -> ClaimedLine? in
             let claimed = item.claimedQuantity(by: person.id)
             guard claimed > 0 else { return nil }
@@ -43,14 +46,14 @@ public enum ShareCalculator {
                 quantity: claimed,
                 outOf: item.quantity,
                 isSplit: item.isSplit,
-                amount: item.claimedTotal(by: person.id).roundedToCents()
+                amount: item.claimedTotal(by: person.id).rounded(toPlaces: places)
             )
         }
-        let subtotal = claimedSubtotal(of: receipt, by: person.id).roundedToCents()
-        let tax = taxShare(of: receipt, by: person.id).roundedToCents()
+        let subtotal = claimedSubtotal(of: receipt, by: person.id).rounded(toPlaces: places)
+        let tax = taxShare(of: receipt, by: person.id).rounded(toPlaces: places)
         let charges = chargeShares(of: receipt, by: person.id)
         // Tip is on food and tax; charges and fees are not tipped on.
-        let tip = tip(claimedSubtotal: subtotal, taxShare: tax, config: person.tip).roundedToCents()
+        let tip = tip(claimedSubtotal: subtotal, taxShare: tax, config: person.tip).rounded(toPlaces: places)
         return ShareSummary(
             person: person,
             lines: lines,
@@ -65,9 +68,13 @@ public enum ShareCalculator {
 
 extension Decimal {
     public func roundedToCents() -> Decimal {
+        rounded(toPlaces: 2)
+    }
+
+    public func rounded(toPlaces places: Int) -> Decimal {
         var value = self
         var result = Decimal()
-        NSDecimalRound(&result, &value, 2, .plain)
+        NSDecimalRound(&result, &value, places, .plain)
         return result
     }
 }

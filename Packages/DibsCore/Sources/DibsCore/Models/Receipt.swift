@@ -11,6 +11,9 @@ public struct Receipt: Identifiable, Hashable, Sendable, Codable {
     public var total: Decimal?
     /// Service charges, fees and discounts, shared out like tax.
     public var charges: [Charge]
+    /// The ISO 4217 code of the currency the bill is in, like "EUR". Nil
+    /// when nothing on the receipt said.
+    public var currencyCode: String?
 
     public init(
         id: UUID = UUID(),
@@ -18,7 +21,8 @@ public struct Receipt: Identifiable, Hashable, Sendable, Codable {
         tax: Decimal = 0,
         subtotal: Decimal? = nil,
         total: Decimal? = nil,
-        charges: [Charge] = []
+        charges: [Charge] = [],
+        currencyCode: String? = nil
     ) {
         self.id = id
         self.items = items
@@ -26,6 +30,13 @@ public struct Receipt: Identifiable, Hashable, Sendable, Codable {
         self.subtotal = subtotal
         self.total = total
         self.charges = charges
+        self.currencyCode = currencyCode
+    }
+
+    /// How many decimal places the bill's amounts have: none for a bill in
+    /// yen, two unless the currency says otherwise.
+    public var fractionDigits: Int {
+        currencyCode.map(Currency.fractionDigits) ?? 2
     }
 
     public var itemsSubtotal: Decimal {

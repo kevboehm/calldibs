@@ -259,6 +259,15 @@ final class BugBashTests: XCTestCase {
         note("dialog shown: \(button("Continue anyway").exists)")
     }
 
+    func testPrintedTipIsSharedLikeACharge() {
+        launch("tipped-share")
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        shot("tp01-share")
+        note("tip rows: \(texts().filter { $0.lowercased().contains("tip") || $0.contains("Total") })")
+    }
+
     func testOverviewEditDeleteAndReset() {
         launch("split")
         tap(app.staticTexts["Sam"].firstMatch, "expand Sam")

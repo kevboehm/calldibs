@@ -292,6 +292,43 @@ private func d(_ string: String) -> Decimal { Decimal(string: string)! }
         #expect(hint.total == d("26.00"))
     }
 
+    /// A paid copy prints the tip that was left. It is shared like a service
+    /// charge once a later amount shows it was really added.
+    @Test func printedTipIsAChargeWhenALaterAmountIncludesIt() {
+        let secondTotal = ReceiptTextParser.parse(lines: [
+            "Pasta 60.00", "Wine 40.00", "Subtotal 100.00", "Tax 8.00", "Total 108.00", "Tip 20.00", "Total 128.00",
+        ])
+        #expect(secondTotal.charges.map(\.name) == ["Tip"])
+        #expect(secondTotal.charges.map(\.amount) == [d("20.00")])
+        #expect(secondTotal.total == d("128.00"))
+        #expect(secondTotal.reconciles == true)
+        #expect(secondTotal.includesGratuity)
+
+        let payment = ReceiptTextParser.parse(lines: [
+            "Pasta 60.00", "Wine 40.00", "Subtotal 100.00", "Tax 8.00", "Total 108.00", "Tip 20.00", "Visa 128.00",
+        ])
+        #expect(payment.charges.map(\.amount) == [d("20.00")])
+        #expect(payment.total == d("128.00"))
+        #expect(payment.reconciles == true)
+
+        let aboveTheTotal = ReceiptTextParser.parse(lines: [
+            "Pasta 60.00", "Wine 40.00", "Subtotal 100.00", "Tax 8.00", "Tip 20.00", "Total 128.00",
+        ])
+        #expect(aboveTheTotal.charges.map(\.amount) == [d("20.00")])
+        #expect(aboveTheTotal.tax == d("8.00"))
+        #expect(aboveTheTotal.reconciles == true)
+    }
+
+    @Test func tipNoTotalAccountsForIsIgnored() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Pasta 60.00", "Wine 40.00", "Subtotal 100.00", "Tax 8.00", "Total 108.00",
+            "Tip 18% 19.44", "Tip 20% 21.60", "Suggested Tip 22% 23.76", "Visa 108.00",
+        ])
+        #expect(receipt.charges.isEmpty)
+        #expect(receipt.total == d("108.00"))
+        #expect(!receipt.includesGratuity)
+    }
+
     @Test func readsADiscountTheTotalConfirms() {
         let receipt = ReceiptTextParser.parse(lines: [
             "Pizza 20.00", "Salad 10.00", "Subtotal 30.00", "Happy Hour Discount -5.00", "Tax 2.00", "Total 27.00",

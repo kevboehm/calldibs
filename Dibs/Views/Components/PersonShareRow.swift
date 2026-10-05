@@ -45,7 +45,9 @@ struct PersonShareRow: View {
                 ForEach(summary.chargeShares) { charge in
                     AmountRow(charge.name, charge.amount)
                 }
-                AmountRow("Tip (\(tipPercent)%)", summary.tip)
+                if summary.tip != 0 {
+                    AmountRow("Tip (\(tipPercent)%)", summary.tip)
+                }
             }
             .foregroundStyle(.secondary)
         } label: {

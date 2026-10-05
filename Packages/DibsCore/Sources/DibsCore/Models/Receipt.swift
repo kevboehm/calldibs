@@ -55,6 +55,12 @@ public struct Receipt: Identifiable, Hashable, Sendable, Codable {
         itemsSubtotal + tax + chargesTotal
     }
 
+    /// A charge as a fraction of the subtotal: the rate each person pays of
+    /// it on what they had.
+    public func rate(of charge: Charge) -> Decimal {
+        preTaxSubtotal > 0 ? charge.amount / preTaxSubtotal : 0
+    }
+
     /// True when the bill already carries a gratuity or service charge.
     public var includesGratuity: Bool {
         charges.contains(where: \.isGratuity)

@@ -105,6 +105,23 @@ private func d(_ string: String) -> Decimal { Decimal(string: string)! }
         #expect(receipt.computedTotal == d("116.00"))
     }
 
+    /// A tip printed on the receipt: everyone pays the same rate on their
+    /// own subtotal.
+    @Test func printedTipIsSharedAtOneRateOfEachSubtotal() {
+        var receipt = sampleReceipt()
+        let tip = Charge(name: "Tip", amount: d("20.00"))
+        receipt.charges = [tip]
+        receipt.items[0].setClaimed(2, by: sam.id)
+        receipt.items[1].setClaimed(1, by: sam.id)
+        receipt.items[2].setClaimed(1, by: sam.id)
+        receipt.items[0].setClaimed(8, by: alex.id)
+
+        #expect(receipt.rate(of: tip) == d("0.2"))
+        // Sam had 60.00 and Alex 40.00 of the 100.00 subtotal.
+        #expect(ShareCalculator.summary(for: receipt, person: sam).chargeShares.map(\.amount) == [d("12.00")])
+        #expect(ShareCalculator.summary(for: receipt, person: alex).chargeShares.map(\.amount) == [d("8.00")])
+    }
+
     @Test func nothingClaimedOwesNothing() {
         let summary = ShareCalculator.summary(for: sampleReceipt(), person: sam)
         #expect(summary.lines.isEmpty)

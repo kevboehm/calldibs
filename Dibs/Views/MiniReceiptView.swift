@@ -36,10 +36,10 @@ struct MiniReceiptView: View {
                 AmountRow("Subtotal", summary.claimedSubtotal)
                 AmountRow("Tax (your share)", summary.taxShare)
                 ForEach(summary.chargeShares) { charge in
-                    AmountRow("\(charge.name) (your share)", charge.amount)
+                    AmountRow(label(for: charge), charge.amount)
                 }
                 TipControl(percent: $session.tipPercent, base: $session.tipBase)
-                AmountRow("Tip (\(session.tipPercent)%)", summary.tip)
+                AmountRow("\(session.receipt.includesGratuity ? "Extra tip" : "Tip") (\(session.tipPercent)%)", summary.tip)
                 AmountRow("Total", summary.total, isTotal: true)
             } header: {
                 Text("How it adds up")
@@ -118,11 +118,22 @@ struct MiniReceiptView: View {
         }
     }
 
+    /// A tip or gratuity on the bill is one rate for the whole table, so it
+    /// reads as that rate on this person's subtotal.
+    private func label(for share: ChargeShare) -> String {
+        let receipt = session.receipt
+        guard let charge = receipt.charges.first(where: { $0.id == share.id }), charge.isGratuity else {
+            return "\(share.name) (your share)"
+        }
+        let rate = receipt.rate(of: charge).formatted(.percent.precision(.fractionLength(0...1)))
+        return "\(share.name) (\(rate) of your subtotal)"
+    }
+
     private func tipNote(for summary: ShareSummary) -> String {
         let postTax = summary.person.tip.base == .postTax
         if session.receipt.includesGratuity {
             let basis = postTax ? "your subtotal plus tax" : "your subtotal before tax"
-            return "This bill already includes a gratuity or service charge, so your tip starts at 0%. Anything you add is on \(basis) and only affects your total."
+            return "This bill already includes a tip, gratuity or service charge, so your own tip starts at 0%. Anything you add is on \(basis) and only affects your total."
         }
         return postTax
             ? "Your tip is calculated on your subtotal plus your share of tax, not on service charges or fees. It only affects your total."

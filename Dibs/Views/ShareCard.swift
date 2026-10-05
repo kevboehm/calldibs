@@ -105,9 +105,9 @@ extension ShareCard {
         sections.append([
             Row(label: "Subtotal", amount: Money.string(summary.claimedSubtotal)),
             Row(label: "Tax", amount: Money.string(summary.taxShare)),
-        ] + summary.chargeShares.map { Row(label: $0.name, amount: Money.string($0.amount)) } + [
-            Row(label: "Tip (\(percent)%)", amount: Money.string(summary.tip)),
-        ])
+        ] + summary.chargeShares.map { Row(label: $0.name, amount: Money.string($0.amount)) }
+            // A tip already on the bill is one of the charges above.
+            + (summary.tip == 0 ? [] : [Row(label: "Tip (\(percent)%)", amount: Money.string(summary.tip))]))
         sections.append([Row(label: "Total", amount: Money.string(summary.total), isEmphasized: true)])
 
         self.init(

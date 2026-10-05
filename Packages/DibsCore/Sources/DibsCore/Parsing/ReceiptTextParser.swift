@@ -19,7 +19,7 @@ public enum ReceiptTextParser {
         // "Service charge" under the items, with no subtotal line before it,
         // is still a charge. A name like "Room Service Club" in the middle of
         // the items is something someone ordered.
-        let chargeStart = entries[..<summaryStart].lastIndex { $0.kind != .charge && $0.kind != .noise }
+        let chargeStart = entries[..<summaryStart].lastIndex { $0.kind != .charge && $0.kind != .noise && $0.kind != .tip }
             .map { $0 + 1 } ?? 0
         var itemEntries = entries[..<chargeStart]
             .filter { ($0.kind == .item || $0.kind == .charge) && $0.price > 0 && !$0.isCredit }
@@ -53,6 +53,18 @@ public enum ReceiptTextParser {
         if !late.isEmpty, totals.contains(where: { $0.price == base + tax + sum(chargeEntries) + sum(late) }) {
             chargeEntries += late
         }
+        // A tip printed on a paid copy is shared like a service charge, but
+        // only when a total or payment after it shows it was added on.
+        var paidTotal: Decimal?
+        let owedBeforeTip = base + tax + sum(chargeEntries)
+        if let tip = entries.first(where: { tip in
+            tip.kind == .tip && tip.price > 0 && !tip.isCredit && entries[(tip.index + 1)...].contains {
+                ($0.kind == .total || $0.kind == .grandTotal || $0.kind == .noise) && $0.price == owedBeforeTip + tip.price
+            }
+        }) {
+            chargeEntries.append(tip)
+            paidTotal = owedBeforeTip + tip.price
+        }
         var charges = chargeEntries.map { Charge(name: cleanName($0.label), amount: $0.price) }
         // A discount is taken on trust only when the total proves it.
         let discounts = summary[..<firstTotal].filter { $0.kind == .discount }
@@ -72,6 +84,7 @@ public enum ReceiptTextParser {
         // Of several totals, the one that adds up; otherwise the grand total,
         // otherwise the first (a later one may include a tip).
         var total = totals.first { $0.price == base + tax + fees }?.price
+            ?? paidTotal
             ?? totals.first { $0.kind == .grandTotal }?.price
             ?? totals.first?.price
         // A total under another name ("Amount: 114.95"), or with no name.
@@ -222,8 +235,9 @@ public enum ReceiptTextParser {
     private enum Kind {
         /// `bare` is a price with no words on its line or the line above.
         /// `charge` is a service charge, gratuity or fee; `discount` a
-        /// named reduction.
-        case subtotal, tax, total, grandTotal, charge, discount, noise, bare, item
+        /// named reduction; `tip` a tip line, which is a charge only when
+        /// a later amount includes it.
+        case subtotal, tax, total, grandTotal, charge, discount, tip, noise, bare, item
 
         var isSummary: Bool { self == .subtotal || self == .tax || self == .total || self == .grandTotal }
     }
@@ -268,6 +282,9 @@ public enum ReceiptTextParser {
         // "Parties of 6+": the automatic gratuity for a large table.
         if label.lowercased().contains(#/\bpart(y|ies) of \d/#) { return .charge }
         if !words.isDisjoint(with: chargeWords), words.isDisjoint(with: suggestionWords) { return .charge }
+        if words.contains("tip") || words.contains("tips"), words.isDisjoint(with: suggestionWords.subtracting(["tip"])) {
+            return .tip
+        }
         if !words.isDisjoint(with: noiseWords) || isMetadata(lower) { return .noise }
         if words.contains("due") || lower.contains("grand total") { return .grandTotal }
         if words.contains("total") { return .total }

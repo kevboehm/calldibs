@@ -28,6 +28,12 @@ enum DebugSeed {
         case "charges-share":
             turn("Kevin", [(0, 1), (3, 1), (5, 2)])
             return (session, [.edit, .name, .claim(.swipe), .summary])
+        case "tipped-share":
+            // A paid copy: the tip that was left is on the receipt.
+            session.receipt.charges = [Charge(name: "Tip", amount: Decimal(string: "27.68")!)]
+            session.receipt.total = Decimal(string: "180.68")
+            turn("Kevin", [(0, 1), (3, 1), (5, 2)])
+            return (session, [.edit, .name, .claim(.swipe), .summary])
         case "bill", "charges":
             return (session, [.edit])
         case "mismatch":

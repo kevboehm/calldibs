@@ -11,7 +11,21 @@ public enum ReceiptTextParser {
     /// line and its price line, when those are different rows), so the item
     /// can be shown next to that part of the photo.
     public static func parseWithSources(lines: [String]) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
-        let entries = entries(from: lines)
+        parse(lines: lines, rows: nil)
+    }
+
+    /// The same from OCR rows, whose positions in the photo help tell a
+    /// name that wrapped onto a second line from a line of its own.
+    public static func parse(rows: [OCRRow]) -> Receipt {
+        parseWithSources(rows: rows).receipt
+    }
+
+    public static func parseWithSources(rows: [OCRRow]) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
+        parse(lines: rows.map(\.text), rows: rows)
+    }
+
+    private static func parse(lines: [String], rows: [OCRRow]?) -> (receipt: Receipt, itemLines: [LineItem.ID: [Int]]) {
+        let entries = entries(from: lines, rows: rows)
 
         // Items are printed first; from the first subtotal, tax or total line
         // on, a priced line is a summary, a payment or a tip suggestion.
@@ -177,27 +191,249 @@ public enum ReceiptTextParser {
         var lines: [Int] = []
     }
 
-    private static func entries(from lines: [String]) -> [Entry] {
+    private static func entries(from lines: [String], rows: [OCRRow]?) -> [Entry] {
         var entries: [Entry] = []
-        // A name-only line waiting for a price-only line beneath it.
-        var pendingName: (text: String, line: Int)?
+        let layout = Layout(lines, rows: rows)
+        // Name-only lines in a row, waiting to learn whose they are: the
+        // price line beneath them, or the item above that they wrapped from.
+        var pending: [Layout.Name] = []
+        // The entry directly above `pending`, the name on its own line, and
+        // whether its price sat on a row of its own.
+        var above: (entry: Int, name: Layout.Name, barePrice: Bool)?
+
+        // Whatever the price line beneath didn't take may be the wrapped
+        // end of the item above.
+        func settle(_ names: [Layout.Name]) {
+            guard let above, entries[above.entry].kind == .item, !entries[above.entry].isCredit else { return }
+            var from = above.name
+            for name in names.prefix(2) {
+                // A quantity or unit price at the end of the line means the
+                // name was complete.
+                guard !entries[above.entry].label.contains(#/(\d[.,]\d{2}\)?|[xX×]\s?\d{1,2})$/#),
+                      layout.wraps(from: from, onto: name) else { break }
+                entries[above.entry].label += " " + name.text
+                entries[above.entry].lines.append(name.line)
+                from = name
+            }
+        }
 
         for (number, raw) in lines.enumerated() {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { continue }
 
             guard let (ownLabel, price, isCredit) = splitTrailingPrice(line) else {
-                pendingName = line.contains(where: \.isLetter) && !isMetadata(line.lowercased()) ? (line, number) : nil
+                if line.contains(where: \.isLetter), !isMetadata(line.lowercased()) {
+                    pending.append(Layout.Name(text: line, line: number))
+                } else {
+                    settle(pending)
+                    pending = []
+                    above = nil
+                }
                 continue
             }
             let hasOwnLabel = ownLabel.contains(where: \.isLetter)
-            let label = hasOwnLabel ? ownLabel : (pendingName?.text ?? "")
-            let source = hasOwnLabel ? [number] : [pendingName?.line, number].compactMap { $0 }
-            pendingName = nil
+            var names = pending
+            var name = Layout.Name(text: ownLabel, line: number)
+            var label = ownLabel
+            var source = [number]
+            if !hasOwnLabel, let named = names.popLast() {
+                name = named
+                label = named.text
+                source = [named.line, number]
+            }
+            // The start of a name that ran on to this line: it says so, or,
+            // above a price on its own row, it filled the line.
+            var first = name
+            while let start = names.last, source.count < 4, classify(start.text) == .item,
+                  layout.runsOn(start, into: first)
+                    || !hasOwnLabel && above?.barePrice == true && layout.wraps(from: start, onto: first) {
+                label = start.text + " " + label
+                source.insert(start.line, at: 0)
+                first = start
+                names.removeLast()
+            }
+            settle(names)
+            pending = []
+
             let kind = label.contains(where: \.isLetter) ? classify(label) : .bare
             entries.append(Entry(label: label, price: price, isCredit: isCredit, kind: kind, index: entries.count, lines: source))
+            above = (entries.count - 1, name, !hasOwnLabel)
         }
+        settle(pending)
         return markingSubtotal(in: entries)
+    }
+
+    /// What the receipt's item lines have in common, to tell a name that
+    /// wrapped onto a second line from a line that is something else.
+    private struct Layout {
+        /// A name, or part of one, and the line it is on.
+        struct Name {
+            var text: String
+            var line: Int
+        }
+
+        /// Where each row sits in the photo, when every row says.
+        private let rows: [OCRRow]?
+        /// Where the name stops on each line that carries an item's price,
+        /// or sits directly above a price on a row of its own.
+        private var nameEnds: [Double] = []
+        /// Most items start with a quantity.
+        private var usesQuantity = false
+        /// Where the names start and the prices begin, when the photo shows
+        /// prices in a column of their own beside the names.
+        private var nameColumn: (left: Double, right: Double)?
+
+        init(_ lines: [String], rows: [OCRRow]?) {
+            self.rows = rows.flatMap { rows in
+                rows.count == lines.count && rows.allSatisfy { $0.spans?.contains { $0.length > 0 } == true } ? rows : nil
+            }
+            let lines = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            var names: [Name] = []
+            var lastText: Int?
+            for (index, line) in lines.enumerated() where !line.isEmpty {
+                defer { lastText = index }
+                guard let label = splitTrailingPrice(line)?.label else { continue }
+                if label.contains(where: \.isLetter) {
+                    names.append(Name(text: label, line: index))
+                } else if let lastText, splitTrailingPrice(lines[lastText]) == nil {
+                    names.append(Name(text: lines[lastText], line: lastText))
+                }
+            }
+            names = names.filter { classify($0.text) == .item }
+            nameEnds = names.map(end)
+            nameColumn = Self.nameColumn(beside: names, in: self.rows)
+            let counted = names.filter { Self.startsWithQuantity($0.text) }.count
+            usesQuantity = counted >= 2 && counted * 2 > names.count
+        }
+
+        /// From the left edge of the names to the leftmost price printed
+        /// beside one.
+        private static func nameColumn(beside names: [Name], in rows: [OCRRow]?) -> (left: Double, right: Double)? {
+            guard let rows else { return nil }
+            let priced = names.compactMap { name -> (left: Double, price: Double)? in
+                let spans = rows[name.line].spans ?? []
+                guard spans.count > 1, let first = spans.first, let last = spans.last else { return nil }
+                return (first.minX, last.minX)
+            }
+            guard priced.count >= 2, let left = priced.map(\.left).min(), let right = priced.map(\.price).min(),
+                  right > left else { return nil }
+            return (left, right)
+        }
+
+        /// How far a name could run before its next word had to wrap. The
+        /// longest name on another line shows it, when names come close to
+        /// the prices; when every name is short, only the prices mark it.
+        private func limit(besides end: Double) -> Double? {
+            var others = nameEnds
+            if let own = others.firstIndex(of: end) { others.remove(at: own) }
+            guard others.count >= 2, let longest = others.max() else { return nil }
+            guard let nameColumn else { return longest }
+            return longest - nameColumn.left >= 0.8 * (nameColumn.right - nameColumn.left) ? longest : nameColumn.right
+        }
+
+        /// Where a name stops along its line: its right edge in the photo,
+        /// or with no photo to go by, its length in characters.
+        private func end(of name: Name) -> Double {
+            guard let spans = rows?[name.line].spans?.filter({ $0.length > 0 }), var last = spans.first else {
+                return Double(name.text.count)
+            }
+            // The name is the start of its row's text, a space between fragments.
+            var remaining = name.text.count
+            for span in spans {
+                guard remaining > 0 else { break }
+                last = span
+                if remaining <= span.length {
+                    return span.minX + span.width * Double(remaining) / Double(span.length)
+                }
+                remaining -= span.length + 1
+            }
+            return last.minX + last.width
+        }
+
+        /// The row's longest fragment: the one that best shows its print.
+        private func print(onLine line: Int) -> OCRRow.Span? {
+            rows?[line].spans?.max { $0.length < $1.length }
+        }
+
+        /// The room a word of this many characters takes on a line, with the
+        /// space before it, in the same measure.
+        private func room(for characters: Int, onLine line: Int) -> Double {
+            guard let span = print(onLine: line), span.length > 0 else { return Double(characters + 1) }
+            return span.width * Double(characters + 1) / Double(span.length)
+        }
+
+        /// Smaller print under an item is a note about it, not more of its name.
+        private func sameSize(_ first: Int, _ second: Int) -> Bool {
+            guard let above = print(onLine: first)?.height, let below = print(onLine: second)?.height,
+                  above > 0 else { return true }
+            return (0.76...1.32).contains(below / above)
+        }
+
+        /// A name wraps when its next word didn't fit, so the line it left
+        /// was full: with the word, longer than any other line's name. A
+        /// line that stops mid-phrase says so itself.
+        func wraps(from name: Name, onto next: Name) -> Bool {
+            let letters = next.text.filter(\.isLetter).count
+            guard sameSize(name.line, next.line),
+                  letters >= 2, next.text.filter(\.isNumber).count <= letters,
+                  classify(next.text) == .item,
+                  !(usesQuantity && Self.startsWithQuantity(next.text)),
+                  !Self.isModifier(next.text), !Self.repeats(next.text, name.text) else { return false }
+            if Self.stopsMidPhrase(name.text) { return true }
+
+            let end = end(of: name)
+            // A line with an amount in it is an entry of its own.
+            guard let column = limit(besides: end),
+                  !next.text.contains(#/\d[.,]\d{2}/#), !name.text.contains(#/\d[.,]\d{2}/#) else { return false }
+            return end + room(for: Self.firstWord(of: next.text).count, onLine: next.line) > column
+                && self.end(of: next) <= column * 1.03
+        }
+
+        /// A name-only line that is the start of the item priced beneath it:
+        /// it stops mid-phrase, or it has the quantity that line lacks.
+        func runsOn(_ name: Name, into next: Name) -> Bool {
+            guard sameSize(name.line, next.line) else { return false }
+            // A dash or an open bracket ends headings too ("Wine Glass-").
+            if let last = name.text.last, ",&".contains(last) { return true }
+            return usesQuantity && Self.startsWithQuantity(name.text) && !Self.startsWithQuantity(next.text)
+        }
+
+        /// Ends on a comma, a spaced dash or the like, or inside a bracket.
+        private static func stopsMidPhrase(_ text: String) -> Bool {
+            if let last = text.last, ",&/".contains(last) || text.hasSuffix(" -") { return true }
+            return text.filter { $0 == "(" }.count > text.filter { $0 == ")" }.count
+        }
+
+        /// Up to the first space after something readable, so a bullet
+        /// stays with the word it introduces.
+        private static func firstWord(of text: String) -> Substring {
+            var seenWord = false
+            for index in text.indices {
+                if text[index].isLetter || text[index].isNumber { seenWord = true }
+                if text[index] == " ", seenWord { return text[..<index] }
+            }
+            return text[...]
+        }
+
+        /// "Side : Focaccia Bread" over "focaccia bread": the same words
+        /// again, not more of the name.
+        private static func repeats(_ next: String, _ name: String) -> Bool {
+            let said = Set(name.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }))
+            let words = next.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            return !words.isEmpty && words.allSatisfy(said.contains)
+        }
+
+        private static func startsWithQuantity(_ label: String) -> Bool {
+            label.firstMatch(of: #/^(\d{1,2}\s*[xX×]?|[xX×]\s?\d{1,2})\s+\S/#) != nil
+        }
+
+        /// "+ Grilled", "No onion": said about the item above, not part of
+        /// its name.
+        private static func isModifier(_ line: String) -> Bool {
+            let lower = line.lowercased()
+            return "+-*>(#".contains(lower.first ?? " ")
+                || ["add ", "no ", "extra ", "sub ", "w/"].contains { lower.hasPrefix($0) }
+        }
     }
 
     /// "Total" printed above the charges and tax, with a larger total beneath

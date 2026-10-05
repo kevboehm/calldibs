@@ -37,7 +37,7 @@ import DibsEval
                 guard let truthData = try? Data(contentsOf: truthURL) else { return nil }
                 let truth = try JSONDecoder().decode(GroundTruth.self, from: truthData)
                 let fragments = try JSONDecoder().decode([TextFragment].self, from: Data(contentsOf: ocr))
-                let receipt = ReceiptTextParser.parse(lines: OCRRowGrouper.lines(from: fragments))
+                let receipt = ReceiptTextParser.parse(rows: OCRRowGrouper.rows(from: fragments))
                 return (ocr.lastPathComponent, Score(parsed: receipt, truth: truth))
             }
     }

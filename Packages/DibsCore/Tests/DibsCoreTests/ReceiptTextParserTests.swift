@@ -329,6 +329,134 @@ private func d(_ string: String) -> Decimal { Decimal(string: string)! }
         #expect(!receipt.includesGratuity)
     }
 
+    /// A long name wraps under its own line, which filled the name column.
+    @Test func wrappedNameBelowThePriceLineIsOneItem() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "1 Caesar Salad 12.00",
+            "1 Buttermilk Fried Chicken 16.00",
+            "Sandwich",
+            "1 Truffle Parmesan Fries 9.00",
+            "1 Iced Tea 4.00",
+            "Subtotal 41.00",
+        ])
+        #expect(receipt.items.map(\.name) == [
+            "Caesar Salad", "Buttermilk Fried Chicken Sandwich", "Truffle Parmesan Fries", "Iced Tea",
+        ])
+        #expect(receipt.itemsSubtotal == d("41.00"))
+    }
+
+    /// A line under a short name didn't wrap from it: a modifier, or an item
+    /// whose price wasn't read. Neither belongs in the name above.
+    @Test func lineUnderAShortNameIsNotAWrap() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "1 Sapporo 7.00",
+            "Cider",
+            "1 Salt and Pepper Shrimp 19.00",
+            "1 Iced Tea 4.00",
+            "No ice",
+            "1 Garlic Noodles 16.00",
+        ])
+        #expect(receipt.items.map(\.name) == ["Sapporo", "Salt and Pepper Shrimp", "Iced Tea", "Garlic Noodles"])
+    }
+
+    /// The price sits on the last line of the name. Where items start with a
+    /// quantity, the line that has one is where the item starts.
+    @Test func wrappedNameAboveThePriceLineIsOneItem() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "1 Caesar Salad 12.00",
+            "1 Grilled Salmon with Lemon",
+            "Butter Sauce 24.00",
+            "2 Iced Tea 8.00",
+            "1 Garlic Noodles 16.00",
+        ])
+        #expect(receipt.items.map(\.name) == ["Caesar Salad", "Grilled Salmon with Lemon Butter Sauce", "Iced Tea", "Garlic Noodles"])
+        #expect(receipt.items.map(\.quantity) == [1, 1, 2, 1])
+    }
+
+    /// A line ending in a comma runs on into the next.
+    @Test func linesEndingInACommaRunOn() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "2 Cokes 5.00",
+            "Bacon Burger, burger mods,",
+            "cheddar, add bacon,",
+            "sour cream 13.75",
+            "Sub Total: 18.75",
+        ])
+        #expect(receipt.items.map(\.name) == ["Cokes", "Bacon Burger, burger mods, cheddar, add bacon, sour cream"])
+    }
+
+    /// Two name lines above a price on a row of its own.
+    @Test func wrappedNameAboveABarePriceIsOneItem() {
+        let receipt = ReceiptTextParser.parse(lines: [
+            "Caesar Salad", "12.00",
+            "Buttermilk Fried Chicken", "Sandwich", "16.00",
+            "Truffle Parmesan Fries", "9.00",
+        ])
+        #expect(receipt.items.map(\.name) == ["Caesar Salad", "Buttermilk Fried Chicken Sandwich", "Truffle Parmesan Fries"])
+    }
+
+    /// A digital receipt in a proportional font: names wrap under their
+    /// own line, and a note in smaller print sits under some items. Sizes
+    /// and positions are as the OCR reported them.
+    @Test func wrappedNamesAreJoinedByPositionAndSmallPrintIsLeftOut() {
+        func row(_ name: String, _ x: Double, _ width: Double, _ height: Double, price: String? = nil) -> OCRRow {
+            var spans = [OCRRow.Span(minX: x, width: width, height: height, length: name.count)]
+            if let price {
+                spans.append(OCRRow.Span(minX: 0.795, width: 0.1, height: 0.0233, length: price.count))
+            }
+            return OCRRow(
+                text: [name, price].compactMap { $0 }.joined(separator: " "),
+                minX: x, minY: 0, width: 0.8, height: height, spans: spans
+            )
+        }
+        let receipt = ReceiptTextParser.parse(rows: [
+            row("Trillium Vanilla PM Dawn Imp. Stout*16oz", 0.109, 0.620, 0.0190, price: "$7.30"),
+            row("Loose", 0.105, 0.080, 0.0131),
+            row("Epic BA Imperial Pumpkin Porter CANS", 0.106, 0.589, 0.0206, price: "$8.50"),
+            row("• 16oz", 0.106, 0.094, 0.0176),
+            row("Loose", 0.108, 0.077, 0.0131),
+            row("House Pretzel", 0.109, 0.230, 0.0190, price: "$2.00"),
+            row("Himemaru Japanese Rice Crackers -", 0.106, 0.554, 0.0175, price: "$5.00"),
+            row("Toasted, Mildly Spicy 3.45oz", 0.109, 0.434, 0.0191),
+            row("#35: Little Beast : Festbier ($16", 0.106, 0.523, 0.0161, price: "$5.00"),
+            row("Liter/$8.50 ½ Liter)", 0.109, 0.291, 0.0176),
+            row("Half (8oz or 1/2L)", 0.109, 0.217, 0.0132),
+            row("Purchase Subtotal", 0.109, 0.271, 0.0147, price: "$27.80"),
+        ])
+        #expect(receipt.items.map(\.name) == [
+            "Trillium Vanilla PM Dawn Imp. Stout*16oz",
+            "Epic BA Imperial Pumpkin Porter CANS • 16oz",
+            "House Pretzel",
+            "Himemaru Japanese Rice Crackers - Toasted, Mildly Spicy 3.45oz",
+            "#35: Little Beast : Festbier ($16 Liter/$8.50 ½ Liter)",
+        ])
+        #expect(receipt.itemsSubtotal == d("27.80"))
+    }
+
+    /// Names well short of the price column didn't wrap, whatever sits
+    /// under them.
+    @Test func lineUnderANameWithRoomToSpareIsNotAWrap() {
+        func row(_ name: String, _ width: Double, price: String? = nil) -> OCRRow {
+            var spans = [OCRRow.Span(minX: 0.1, width: width, height: 0.02, length: name.count)]
+            if let price {
+                spans.append(OCRRow.Span(minX: 0.8, width: 0.1, height: 0.02, length: price.count))
+            }
+            return OCRRow(
+                text: [name, price].compactMap { $0 }.joined(separator: " "),
+                minX: 0.1, minY: 0, width: 0.8, height: 0.02, spans: spans
+            )
+        }
+        let receipt = ReceiptTextParser.parse(rows: [
+            row("Supreme Burger", 0.28, price: "16.95"),
+            row("Medium", 0.12),
+            row("Pastrami Burger", 0.30, price: "15.25"),
+            row("Medium", 0.12),
+            row("Fountain Soda", 0.26, price: "2.25"),
+            row("Club soda", 0.18),
+        ])
+        #expect(receipt.items.map(\.name) == ["Supreme Burger", "Pastrami Burger", "Fountain Soda"])
+    }
+
     @Test func readsADiscountTheTotalConfirms() {
         let receipt = ReceiptTextParser.parse(lines: [
             "Pizza 20.00", "Salad 10.00", "Subtotal 30.00", "Happy Hour Discount -5.00", "Tax 2.00", "Total 27.00",

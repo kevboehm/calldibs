@@ -59,14 +59,44 @@ public struct OCRRow: Hashable, Sendable, Codable {
     public var height: Double
     /// The least sure of the row's fragments.
     public var confidence: Double
+    /// Where each fragment of `text` sits along the row, left to right, so
+    /// a name's right edge can be found. Nil for rows saved before this was
+    /// recorded.
+    public var spans: [Span]?
 
-    public init(text: String, minX: Double, minY: Double, width: Double, height: Double, confidence: Double = 1) {
+    /// One fragment's place in its row.
+    public struct Span: Hashable, Sendable, Codable {
+        public var minX: Double
+        public var width: Double
+        /// Height of the text itself.
+        public var height: Double
+        /// How many characters of the row's text it holds.
+        public var length: Int
+
+        public init(minX: Double, width: Double, height: Double, length: Int) {
+            self.minX = minX
+            self.width = width
+            self.height = height
+            self.length = length
+        }
+    }
+
+    public init(
+        text: String,
+        minX: Double,
+        minY: Double,
+        width: Double,
+        height: Double,
+        confidence: Double = 1,
+        spans: [Span]? = nil
+    ) {
         self.text = text
         self.minX = minX
         self.minY = minY
         self.width = width
         self.height = height
         self.confidence = confidence
+        self.spans = spans
     }
 }
 
@@ -106,7 +136,10 @@ public enum OCRRowGrouper {
                 minY: minY,
                 width: maxX - minX,
                 height: maxY - minY,
-                confidence: fragments.map(\.confidence).min() ?? 1
+                confidence: fragments.map(\.confidence).min() ?? 1,
+                spans: fragments.map {
+                    OCRRow.Span(minX: $0.minX, width: $0.width, height: $0.height, length: $0.text.count)
+                }
             )
         }
     }

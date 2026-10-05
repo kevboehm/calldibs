@@ -14,6 +14,7 @@ import DibsLLM
 //   --replay    read `x.ocr.json` instead of running OCR, when it exists
 //   --failures  list every receipt that is not perfect, with what was parsed
 //   --lines     print the OCR lines of every photo (for writing ground truth)
+//   --items     print the items parsed from every photo
 //   --llm       let the on-device language model retry receipts that don't add up
 //   --documents read text with RecognizeDocumentsRequest instead (cached as
 //               `x.doc.ocr.json`), to compare the two OCR backends
@@ -68,24 +69,29 @@ for url in images {
     let truth = (try? Data(contentsOf: truthURL)).flatMap { try? JSONDecoder().decode(GroundTruth.self, from: $0) }
     guard truth != nil || flags.contains("--lines") || flags.contains("--dump") else { continue }
 
-    let lines: [String]
+    let rows: [OCRRow]
     do {
-        lines = OCRRowGrouper.lines(from: try await recognize(url))
+        rows = OCRRowGrouper.rows(from: try await recognize(url))
     } catch {
         print("\(name): \(error.localizedDescription)")
         continue
     }
+    let lines = rows.map(\.text)
     if flags.contains("--lines") {
         print("==== \(name)")
         lines.forEach { print($0) }
     }
     guard let truth else { continue }
 
-    var parsed = ReceiptTextParser.parse(lines: lines)
+    var parsed = ReceiptTextParser.parse(rows: rows)
     if flags.contains("--llm"), #available(macOS 26.0, *),
        let improved = await LanguageModelReceiptParser.improve(parsed, lines: lines) {
         parsed = improved
         llmWins += 1
+    }
+    if flags.contains("--items") {
+        print("==== \(name)")
+        parsed.items.forEach { print("\($0.quantity) x \($0.name)  \($0.lineTotal)") }
     }
     let score = Score(parsed: parsed, truth: truth)
     summary.add(score)

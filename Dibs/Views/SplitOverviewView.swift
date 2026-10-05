@@ -5,7 +5,7 @@ import DibsCore
 /// going back into anyone's turn.
 struct SplitOverviewView: View {
     @Environment(\.money) private var money
-    var session: ClaimViewModel
+    @Bindable var session: ClaimViewModel
     let onAddPerson: () -> Void
     let onEdit: (Person.ID) -> Void
     let onNewBill: () -> Void
@@ -23,6 +23,7 @@ struct SplitOverviewView: View {
     private var everyonePayMessage: String? {
         PayShare.everyoneMessage(
             people: session.people.map { (session.displayName($0), session.summary(for: $0).total) },
+            billName: session.billTitle,
             method: payout.method,
             handle: payHandle,
             money: money
@@ -64,6 +65,7 @@ struct SplitOverviewView: View {
         List {
             Section {
                 VStack(spacing: Theme.Spacing.medium) {
+                    BillNameField(name: $session.billName, isCentered: true)
                     OweHero(
                         caption: session.hasUnclaimedItems ? "Covered so far" : "All covered",
                         amount: owedTotal,
@@ -85,6 +87,7 @@ struct SplitOverviewView: View {
                     PersonShareRow(
                         name: session.displayName(person),
                         summary: session.summary(for: person),
+                        billName: session.billTitle,
                         method: payout.method,
                         payerHandle: payHandle,
                         offersPayLinks: session.offersPayLinks
@@ -100,10 +103,50 @@ struct SplitOverviewView: View {
                 Text("Who owes what")
             } footer: {
                 if !session.people.isEmpty {
-                    Text("Open a name to edit it, get paid back, or remove that person.")
+                    Text("Open a name to edit it or remove that person.")
                 }
             }
             .receiptRow()
+
+            if !session.people.isEmpty {
+                Section {
+                    if !session.offersPayLinks {
+                        // Amounts only: nothing to set up.
+                    } else if payout.hasHandle {
+                        HStack {
+                            Label("Your \(payout.method.title)", systemImage: "arrow.up.forward.app")
+                            Spacer()
+                            Text(payout.method.prefix + payout.handle)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            Button("Edit") { editingHandle = true }
+                                .font(.subheadline)
+                        }
+                    } else {
+                        Button("Add how you get paid to share pay links", systemImage: "arrow.up.forward.app") {
+                            editingHandle = true
+                        }
+                    }
+                    // Once everything is covered this is the screen's main
+                    // action, down in the bar.
+                    if session.hasUnclaimedItems, let message = everyonePayMessage {
+                        ShareLink(item: message) {
+                            Label(everyoneShareTitle, systemImage: "square.and.arrow.up")
+                        }
+                    }
+                } header: {
+                    Text("Get paid back")
+                } footer: {
+                    if !session.offersPayLinks {
+                        Text("Pay links only work for bills in US dollars. This one is in \(money.currencyCode), so this shares the amounts without links.")
+                    } else if payout.hasHandle {
+                        Text("Each person's link opens \(payout.method.title) with their amount filled in, ready to pay you.")
+                    } else {
+                        Text("Add your Venmo, Cash App or PayPal and each person gets a link with their amount filled in.")
+                    }
+                }
+                .receiptRow()
+            }
 
             if session.hasUnclaimedItems {
                 Section {
@@ -128,51 +171,10 @@ struct SplitOverviewView: View {
                 .receiptRow()
             }
 
-            if !session.people.isEmpty {
-                Section {
-                    if !session.offersPayLinks {
-                        // Amounts only: nothing to set up.
-                    } else if payout.hasHandle {
-                        HStack {
-                            Label("Your \(payout.method.title)", systemImage: "arrow.up.forward.app")
-                            Spacer()
-                            Text(payout.method.prefix + payout.handle)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                            Button("Edit") { editingHandle = true }
-                                .font(.subheadline)
-                        }
-                    } else {
-                        Button("Add how you get paid to share pay links", systemImage: "arrow.up.forward.app") {
-                            editingHandle = true
-                        }
-                    }
-                    if let message = everyonePayMessage {
-                        ShareLink(item: message) {
-                            Label(
-                                sharesPayLinks ? "Share everyone's pay-me links" : "Share what everyone owes",
-                                systemImage: "square.and.arrow.up"
-                            )
-                        }
-                    }
-                } header: {
-                    Text("Get paid back")
-                } footer: {
-                    if !session.offersPayLinks {
-                        Text("Pay links only work for bills in US dollars. This one is in \(money.currencyCode), so this shares the amounts without links.")
-                    } else if payout.hasHandle {
-                        Text("Links open \(payout.method.title) with each person's amount filled in, ready to pay you. You confirm nothing here — they do, in \(payout.method.title).")
-                    } else {
-                        Text("Add your Venmo, Cash App or PayPal and each person gets a link with their amount filled in.")
-                    }
-                }
-                .receiptRow()
-            }
-
             Section {
                 if !session.people.isEmpty {
                     let image = ShareCardImage(card: splitCard)
-                    ShareLink(item: image, preview: SharePreview("The split", image: image)) {
+                    ShareLink(item: image, preview: SharePreview(session.billTitle ?? "The split", image: image)) {
                         Label("Share the split as a picture", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -184,6 +186,16 @@ struct SplitOverviewView: View {
         .navigationTitle("The split")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden()
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Done", action: done)
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done", action: Keyboard.dismiss)
+            }
+        }
         // Arriving here by the Back button abandons whatever turn was open.
         .onAppear(perform: session.endTurn)
         .confirmationDialog("Start a new bill?", isPresented: $confirmNewBill, titleVisibility: .visible) {
@@ -208,10 +220,32 @@ struct SplitOverviewView: View {
         .sheet(isPresented: $editingHandle) {
             PaymentHandleSheet()
         }
-        .actionBar {
+        .actionBar(hidesWithKeyboard: true) {
             if session.hasUnclaimedItems {
                 PrimaryButton("Add another person", systemImage: "person.badge.plus", action: onAddPerson)
+            } else if session.offersPayLinks, !payout.hasHandle, hasPayableTotals {
+                PrimaryButton("Set up pay links", systemImage: "arrow.up.forward.app") { editingHandle = true }
+            } else if let message = everyonePayMessage {
+                ShareLink(item: message) {
+                    PrimaryButtonLabel(title: everyoneShareTitle, systemImage: "paperplane.fill")
+                }
+                .primaryButtonStyle()
             }
+        }
+    }
+
+    private var everyoneShareTitle: String {
+        sharesPayLinks ? "Send everyone their pay links" : "Share what everyone owes"
+    }
+
+    /// Puts the bill away. It goes to History if anyone called dibs, so
+    /// only a bill that would be lost asks first.
+    private func done() {
+        Keyboard.dismiss()
+        if session.people.isEmpty {
+            confirmNewBill = true
+        } else {
+            onNewBill()
         }
     }
 
@@ -243,9 +277,25 @@ struct SplitOverviewView: View {
 
     private var splitCard: ShareCard {
         ShareCard(
+            title: session.billTitle,
             people: session.people.map { (session.displayName($0), session.summary(for: $0)) },
             unclaimed: unclaimedTotal,
             money: money
         )
+    }
+}
+
+/// Where a bill gets its name. Optional: an unnamed bill goes by who was on it.
+struct BillNameField: View {
+    @Binding var name: String
+    var isCentered = false
+
+    var body: some View {
+        TextField(isCentered ? "Name this bill" : "Name this bill, like Dinner at Nopa", text: $name)
+            .font(isCentered ? .headline : .body)
+            .multilineTextAlignment(isCentered ? .center : .leading)
+            .textInputAutocapitalization(.words)
+            .submitLabel(.done)
+            .accessibilityLabel("Bill name")
     }
 }

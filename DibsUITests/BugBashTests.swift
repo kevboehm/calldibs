@@ -478,7 +478,7 @@ final class BugBashTests: XCTestCase {
         tap(button("Save"), "Save")
         sleep(1)
         shot("p03-saved")
-        note("after save: \(texts().filter { $0.contains("Cash App") || $0.contains("dibs-tester") }) links=\(button("Share everyone's pay-me links").exists)")
+        note("after save: \(texts().filter { $0.contains("Cash App") || $0.contains("dibs-tester") }) links=\(button("Send everyone their pay links").exists)")
     }
 
     func testBillInAnotherCurrency() {
@@ -505,7 +505,7 @@ final class BugBashTests: XCTestCase {
         app.swipeUp()
         sleep(1)
         shot("c04-split-bottom")
-        note("pay links offered: \(button("Add how you get paid to share pay links").exists || button("Share everyone's pay-me links").exists) plain share: \(button("Share what everyone owes").exists)")
+        note("pay links offered: \(button("Add how you get paid to share pay links").exists || button("Send everyone their pay links").exists) plain share: \(button("Share what everyone owes").exists)")
         note("footer: \(texts().filter { $0.contains("US dollars") })")
 
         launch("share", extra: ["-seedCurrency", "EUR"])
@@ -514,12 +514,59 @@ final class BugBashTests: XCTestCase {
         note("share: \(texts().filter { $0.contains("€") || $0.contains("Tip") }.prefix(8))")
     }
 
+    func testNamedBillPayButtonsAndDone() {
+        launch(nil, extra: ["-resetBill"])
+        launch("split", extra: ["-venmoHandle", "dibs-tester", "-paymentMethod", "venmo"])
+        let name = app.textFields["Bill name"].firstMatch
+        if tap(name, "bill name field") {
+            name.typeText("Dinner at Nopa\n")
+        }
+        shot("n01-named")
+        let request = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Request'")).firstMatch
+        note("row buttons: request=\(request.exists) send=\(button("Send Sam a pay-me link").exists)")
+        tap(button("Send Sam a pay-me link"), "Send Sam a link")
+        sleep(2)
+        shot("n02-share-sheet")
+        let editSam = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Edit Sam'")).firstMatch
+        // Drag the share sheet off the bottom to put it away.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1.0)))
+        sleep(2)
+        note("row opened by the button tap: \(editSam.exists)")
+        tap(app.staticTexts["Sam"].firstMatch, "expand Sam")
+        note("row opens on its own tap: \(editSam.waitForExistence(timeout: 2))")
+        shot("n03-expanded")
+
+        app.swipeUp()
+        scrollTo(button("Split the rest evenly"))
+        tap(button("Split the rest evenly"), "Split the rest evenly")
+        tap(button("Split it evenly"), "Split it evenly")
+        sleep(1)
+        shot("n04-covered")
+        note("covered bar: send all=\(button("Send everyone their pay links").exists) add person=\(button("Add another person").exists)")
+
+        tap(button("Done"), "Done")
+        sleep(1)
+        shot("n05-home")
+        tap(button("History"), "History")
+        shot("n06-history")
+        note("history: \(texts())")
+        tap(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Nopa'")).firstMatch, "open the named split")
+        sleep(1)
+        shot("n07-saved")
+        note("saved nav=\(app.navigationBars.allElementsBoundByIndex.map(\.identifier))")
+    }
+
     func testBottomOfSplitScreenIsReachable() {
         launch("split")
+        _ = button("Add another person").waitForExistence(timeout: 10)
         app.swipeUp()
         app.swipeUp()
+        scrollTo(button("Start a new bill"))
         sleep(1)
         shot("z01-split-bottom")
+        note("new bill reachable: \(button("Start a new bill").exists)")
+        guard button("Start a new bill").exists else { return }
         note("new bill frame=\(button("Start a new bill").frame) add person frame=\(button("Add another person").frame)")
     }
 

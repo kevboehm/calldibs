@@ -26,6 +26,9 @@ final class ClaimViewModel {
     /// Whose turn it is. Nil between turns, while the next name is being typed.
     private(set) var currentID: Person.ID?
 
+    /// What the bill is called, as typed. Optional: see `billTitle`.
+    var billName = ""
+
     /// The name field's text, for a new person or the one being edited.
     var draftName = ""
     /// Position in the swipe stack. Lives here so switching modes keeps it.
@@ -49,6 +52,7 @@ final class ClaimViewModel {
         draftName = snapshot.draftName
         swipeIndex = snapshot.swipeIndex
         scan = snapshot.scan
+        billName = snapshot.name ?? ""
     }
 
     func snapshot(path: [Route]) -> BillSnapshot {
@@ -59,8 +63,15 @@ final class ClaimViewModel {
             draftName: draftName,
             swipeIndex: swipeIndex,
             path: path,
-            scan: scan
+            scan: scan,
+            name: billTitle
         )
+    }
+
+    /// The bill's name, or nil when it hasn't been given one.
+    var billTitle: String? {
+        let trimmed = billName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     // MARK: - Currency

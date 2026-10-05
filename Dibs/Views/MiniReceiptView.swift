@@ -57,7 +57,7 @@ struct MiniReceiptView: View {
                 }
                 .contentTransition(.symbolEffect(.replace))
 
-                let image = ShareCardImage(card: ShareCard(summary: summary, name: name.isEmpty ? nil : name, money: money))
+                let image = ShareCardImage(card: ShareCard(summary: summary, name: name.isEmpty ? nil : name, billName: session.billTitle, money: money))
                 ShareLink(
                     item: image,
                     preview: SharePreview("My share: \(money.string(summary.total))", image: image)

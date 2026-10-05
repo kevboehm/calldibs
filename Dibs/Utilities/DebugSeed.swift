@@ -4,7 +4,8 @@ import DibsCore
 
 /// Launching with `-seedScreen <name>` opens the app on that screen with a
 /// sample bill, so each screen can be checked without tapping through.
-/// `-seedCurrency <code>` puts that bill in another currency.
+/// `-seedCurrency <code>` puts that bill in another currency, and
+/// `-seedName <name>` names the bill on the split screen.
 /// Debug builds only.
 enum DebugSeed {
     static var requestedScreen: String? {
@@ -66,6 +67,7 @@ enum DebugSeed {
             turn("Sam", [(0, 1), (1, 1), (5, 2)])
             turn("Kevin", [(0, 1), (3, 1), (5, 1)])
             session.endTurn()
+            session.billName = UserDefaults.standard.string(forKey: "seedName") ?? ""
             return (session, [.overview])
         default:
             return nil

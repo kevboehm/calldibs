@@ -69,11 +69,12 @@ struct SavedSplitView: View {
 
             Section {
                 let image = ShareCardImage(card: ShareCard(
+                    title: split.snapshot.name,
                     people: shares,
                     unclaimed: unclaimed.reduce(0) { $0 + $1.unclaimedTotal }.roundedToCents(),
                     money: split.money
                 ))
-                ShareLink(item: image, preview: SharePreview("The split", image: image)) {
+                ShareLink(item: image, preview: SharePreview(split.snapshot.name ?? "The split", image: image)) {
                     Label("Share the split as a picture", systemImage: "square.and.arrow.up")
                 }
                 Button("Reopen this split", systemImage: "arrow.uturn.backward", action: onReopen)
@@ -84,7 +85,7 @@ struct SavedSplitView: View {
         }
         .paperScreen()
         .environment(\.money, split.money)
-        .navigationTitle(split.names)
+        .navigationTitle(split.title)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

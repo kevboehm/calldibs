@@ -1,12 +1,14 @@
 import SwiftUI
 import DibsCore
 
-/// One person on the split screen: their total and what it is made up of,
-/// expanding to a way back into their turn and ways to get paid.
+/// One person on the split screen: their total, what it is made up of and
+/// ways to get paid, expanding to a way back into their turn.
 struct PersonShareRow: View {
     @Environment(\.money) private var money
     let name: String
     let summary: ShareSummary
+    /// What the bill is called, if anything, for the notes on pay links.
+    var billName: String?
     /// Where the bill payer gets paid, and their handle there ("" if they
     /// haven't set one).
     var method: PaymentMethod = .venmo
@@ -24,16 +26,6 @@ struct PersonShareRow: View {
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             Button("Edit \(name)'s dibs or tip", systemImage: "pencil", action: onEdit)
-            if summary.total > 0 {
-                if method == .venmo, offersPayLinks {
-                    requestOnVenmo
-                }
-                if let message = PayShare.payMessage(name: name, summary: summary, method: method, handle: payerHandle, money: money) {
-                    ShareLink(item: message) {
-                        Label("Send \(name) a pay-me link", systemImage: "square.and.arrow.up")
-                    }
-                }
-            }
             Button("Remove \(name)", systemImage: "trash", role: .destructive, action: onRemove)
         } label: {
             VStack(spacing: Theme.Spacing.small) {
@@ -52,6 +44,7 @@ struct PersonShareRow: View {
                 }
                 .font(.headline)
                 breakdown
+                payActions
             }
         }
         .font(.subheadline)
@@ -75,15 +68,63 @@ struct PersonShareRow: View {
         .foregroundStyle(.secondary)
     }
 
+    /// Ways to get this person's share back, in reach without opening the
+    /// row: ask for it in Venmo, or send them a link that pays it.
+    @ViewBuilder
+    private var payActions: some View {
+        let message = PayShare.payMessage(
+            name: name, summary: summary, billName: billName, method: method, handle: payerHandle, money: money
+        )
+        if summary.total > 0, let message {
+            HStack(spacing: Theme.Spacing.small) {
+                if method == .venmo, offersPayLinks {
+                    requestOnVenmo
+                }
+                ShareLink(item: message) {
+                    PayPill(title: "Send link", systemImage: "paperplane")
+                }
+                .accessibilityLabel("Send \(name) a pay-me link")
+            }
+            // Their own style, so a tap lands on them and not on the row.
+            .buttonStyle(.borderless)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 2)
+        }
+    }
+
     /// Opens Venmo with a request for this person's share, ready to send.
     private var requestOnVenmo: some View {
-        Button("Request \(money.string(summary.total)) on Venmo", systemImage: "arrow.up.forward.app") {
+        Button {
             VenmoLauncher.open(
                 action: .charge,
                 handle: "",
                 amount: summary.total,
-                note: "\(name)'s share of the bill"
+                note: "\(name)'s share of \(billName ?? "the bill")"
             )
+        } label: {
+            PayPill(title: "Request on Venmo", systemImage: "arrow.up.forward.app")
         }
+        .accessibilityLabel("Request \(money.string(summary.total)) from \(name) on Venmo")
+    }
+}
+
+/// A small tinted capsule, in the same wash as the person's initial.
+private struct PayPill: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+            Text(title)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(.tint)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(.tint.opacity(0.14), in: .capsule)
+        .contentShape(.capsule)
     }
 }

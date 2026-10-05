@@ -115,7 +115,7 @@ struct ShareCard: View {
 
 extension ShareCard {
     /// One person's share: their items and how the total is made up.
-    init(summary: ShareSummary, name: String?, money: Money) {
+    init(summary: ShareSummary, name: String?, billName: String? = nil, money: Money) {
         var sections: [[Row]] = []
         if !summary.lines.isEmpty {
             sections.append(summary.lines.map { Row(label: $0.label, amount: money.string($0.amount)) })
@@ -129,14 +129,14 @@ extension ShareCard {
         self.init(
             eyebrow: name.map { "\($0)'s share" } ?? "My share",
             amount: money.string(summary.total),
-            caption: nil,
+            caption: billName,
             sections: sections
         )
     }
 
     /// The whole table: what each person owes and what it is made up of,
     /// and anything nobody claimed.
-    init(people: [(name: String, summary: ShareSummary)], unclaimed: Decimal, money: Money) {
+    init(title: String? = nil, people: [(name: String, summary: ShareSummary)], unclaimed: Decimal, money: Money) {
         var sections = people.map { person in
             [Row(label: person.name, amount: money.string(person.summary.total), style: .heading)]
                 + person.summary.breakdown.map { Row(label: $0.label, amount: money.string($0.amount), style: .detail) }
@@ -148,7 +148,7 @@ extension ShareCard {
         sections.append([Row(label: unclaimed > 0 ? "Covered so far" : "Total", amount: money.string(total), style: .emphasized)])
 
         self.init(
-            eyebrow: "The split",
+            eyebrow: title ?? "The split",
             amount: money.string(total),
             caption: "\(people.count) \(people.count == 1 ? "person" : "people"), tax and tip included",
             sections: sections

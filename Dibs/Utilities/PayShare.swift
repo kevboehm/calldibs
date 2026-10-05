@@ -8,8 +8,11 @@ import DibsCore
 /// Lives in the app target (not DibsCore) because it formats currency with
 /// `Money`, in the phone's language.
 enum PayShare {
-    /// Note that rides along on the transaction, where the service takes one.
-    static let note = "Bill split"
+    /// Note that rides along on the transaction, where the service takes
+    /// one: the bill's name when it has one.
+    static func note(for billName: String?) -> String {
+        billName ?? "Bill split"
+    }
 
     /// A one-person message, e.g. for DMing someone their share: the amount
     /// and pay link first, then the items, tax and tip that make it up.
@@ -17,14 +20,16 @@ enum PayShare {
     static func payMessage(
         name: String,
         summary: ShareSummary,
+        billName: String? = nil,
         method: PaymentMethod,
         handle: String,
         money: Money
     ) -> String? {
-        guard let url = method.payLink(handle: handle, amount: summary.total, note: note) else {
+        guard let url = method.payLink(handle: handle, amount: summary.total, note: note(for: billName)) else {
             return nil
         }
-        let heading = "\(name), your share is \(money.string(summary.total)). Pay me on \(method.title): \(url.absoluteString)"
+        let share = billName.map { "your share of \($0)" } ?? "your share"
+        let heading = "\(name), \(share) is \(money.string(summary.total)). Pay me on \(method.title): \(url.absoluteString)"
         let lines = summary.breakdown.map { "• \($0.label): \(money.string($0.amount))" }
         return ([heading, ""] + lines).joined(separator: "\n")
     }
@@ -35,6 +40,7 @@ enum PayShare {
     /// left off. Returns `nil` when nobody has a payable amount.
     static func everyoneMessage(
         people: [(name: String, total: Decimal)],
+        billName: String? = nil,
         method: PaymentMethod,
         handle: String,
         money: Money
@@ -45,14 +51,13 @@ enum PayShare {
         let hasHandle = !method.normalize(handle).isEmpty
         let lines: [String] = owing.map { person in
             let amount = "• \(person.name): \(money.string(person.total))"
-            guard let url = method.payLink(handle: handle, amount: person.total, note: note) else {
+            guard let url = method.payLink(handle: handle, amount: person.total, note: note(for: billName)) else {
                 return amount
             }
             return "\(amount) → \(url.absoluteString)"
         }
-        let heading = hasHandle
-            ? "Here's what everyone owes — pay me on \(method.title):"
-            : "Here's what everyone owes:"
+        let owes = billName.map { "Here's what everyone owes for \($0)" } ?? "Here's what everyone owes"
+        let heading = hasHandle ? "\(owes) — pay me on \(method.title):" : "\(owes):"
         return ([heading] + lines).joined(separator: "\n")
     }
 }

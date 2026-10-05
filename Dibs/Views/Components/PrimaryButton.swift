@@ -19,19 +19,37 @@ struct PrimaryButton: View {
             taps += 1
             action()
         } label: {
-            Group {
-                if let systemImage {
-                    Label(title, systemImage: systemImage)
-                } else {
-                    Text(title)
-                }
-            }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Spacing.small)
+            PrimaryButtonLabel(title: title, systemImage: systemImage)
         }
-        .buttonStyle(.glassProminent)
-        .controlSize(.large)
+        .primaryButtonStyle()
         .sensoryFeedback(.impact(weight: .light), trigger: taps)
+    }
+}
+
+/// What a `PrimaryButton` says, for controls that aren't plain buttons (a
+/// `ShareLink`, say) but are the main action all the same.
+struct PrimaryButtonLabel: View {
+    let title: String
+    var systemImage: String?
+
+    var body: some View {
+        Group {
+            if let systemImage {
+                Label(title, systemImage: systemImage)
+            } else {
+                Text(title)
+            }
+        }
+        .font(.headline)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Spacing.small)
+    }
+}
+
+extension View {
+    /// The full-width prominent glass of the screen's main action.
+    func primaryButtonStyle() -> some View {
+        buttonStyle(.glassProminent)
+            .controlSize(.large)
     }
 }

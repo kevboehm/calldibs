@@ -22,7 +22,12 @@ struct HistoryView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(split.names)
+                                    Text(split.title)
+                                    if split.snapshot.name != nil {
+                                        Text(split.names)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
                                     Text(split.date.formatted(date: .abbreviated, time: .shortened))
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)

@@ -28,6 +28,10 @@ struct ReceiptSummaryView: View {
 
     var body: some View {
         List {
+            Section {
+                BillNameField(name: $session.billName)
+            }
+            .receiptRow()
             reviewBanner
             if isEditing {
                 editableItems

@@ -13,4 +13,7 @@ struct BillSnapshot: Codable {
     /// Where the bill was read from on its photo. The photo itself is kept
     /// beside the snapshot by `BillStore`.
     var scan: ScanSource?
+    /// What the bill was called, like "Dinner at Nopa". Nil when it wasn't
+    /// named, and in anything saved before bills had names.
+    var name: String?
 }

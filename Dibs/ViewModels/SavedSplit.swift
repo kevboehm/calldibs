@@ -13,6 +13,9 @@ struct SavedSplit: Codable, Identifiable {
     /// The currency the bill was in.
     var money: Money { snapshot.receipt.money }
 
+    /// What to call it: the bill's name, or who was on it.
+    var title: String { snapshot.name ?? names }
+
     /// Everyone on the split, e.g. "Sam, Kevin and Person 3".
     var names: String {
         shares.map(\.name).formatted(.list(type: .and))

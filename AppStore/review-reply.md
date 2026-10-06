@@ -30,7 +30,7 @@ None. The app has no backend, makes no network requests, and contains no third-p
 - Payment processing: none. Call Dibs does not move, hold or process money. It only builds a standard public link (venmo.com, cash.app or paypal.me) containing the payer's own username and an amount, which the user shares or opens. Any payment happens in that separate app, between the users.
 
 5. REGIONAL DIFFERENCES
-The app works the same way in every region. Two details follow the currency printed on the receipt rather than the user's location: the Venmo, Cash App and PayPal links are offered only for bills in US dollars, since those services pay in dollars (other bills share the amounts without links); and the suggested tip starts at 0% for currencies where tipping is not customary. The app is in English.
+The app works the same way in every region. Two details follow the currency printed on the receipt rather than the user's location: the Venmo, Cash App and PayPal links are offered only for bills in US dollars, since those services pay in dollars (other bills share the amounts without links); and the suggested tip starts at 20% for bills in US or Canadian dollars and at 0% for other currencies, where the user can still add one. The app is in English.
 
 6. REGULATED INDUSTRY OR THIRD-PARTY MATERIAL
 Not applicable. Call Dibs is a calculator: it is not a financial service and does not process payments or hold funds. It contains no protected third-party material. Venmo, Cash App and PayPal are named only to identify the user's own payment app.
